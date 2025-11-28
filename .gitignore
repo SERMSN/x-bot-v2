@@ -1,0 +1,6 @@
+.infa
+!.gitignore
+
+*.log
+*.tmp
+*.temp
