@@ -28,12 +28,13 @@ class MainPanelProvider extends PanelProvider
         return $panel
             ->id('main')
             ->path('/')
-            ->homeUrl('/')
+            //->homeUrl('/')
+            ->homeUrl(env('APP_URL'))
             ->topNavigation()
             ->brandName('X-Bot')
             ->favicon(asset('favicon.png'))
             ->colors([
-                'primary' => '#3B82F6',
+                'primary' => Color::Indigo,
             ])
             ->discoverResources(in: app_path('Filament/Main/Resources'), for: 'App\Filament\Main\Resources')
             ->discoverPages(in: app_path('Filament/Main/Pages'), for: 'App\Filament\Main\Pages')

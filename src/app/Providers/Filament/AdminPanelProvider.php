@@ -27,11 +27,13 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
+            ->homeUrl(env('APP_URL') . '/admin')
             ->topNavigation()
             ->brandName('Admin')
             ->favicon(asset('favicon.png'))
             ->login()
             ->colors([
+                //'primary' => '#3B82F6',
                 'primary' => Color::Indigo,
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')

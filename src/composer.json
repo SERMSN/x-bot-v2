@@ -7,7 +7,11 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "defstudio/telegraph": "^1.66",
         "filament/filament": "^4.0",
+        "filament/forms": "^4.4",
+        "filament/notifications": "^4.4",
+        "filament/tables": "^4.4",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1"
     },
