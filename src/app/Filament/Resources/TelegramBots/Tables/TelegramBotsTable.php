@@ -12,7 +12,7 @@ use Filament\Tables\Table;
 
 use App\Models\TelegramBot;
 use Illuminate\Support\Facades\Http;
-use Filament\Notifications\Notification; 
+use Filament\Notifications\Notification;
 
 class TelegramBotsTable
 {
@@ -20,35 +20,36 @@ class TelegramBotsTable
     {
         return $table
             ->columns([
-                TextColumn::make('id')
-                    ->label('ID'),
-                TextColumn::make('name')
-                    ->label('Название')
+                TextColumn::make("id")->label("ID"),
+                TextColumn::make("name")
+                    ->label("Название")
                     ->searchable()
                     ->sortable()
                     ->description(function ($record) {
-                        if (str_contains(strtolower($record->name), 'погод')) {
-                            return 'Погодный бот';
-                        } elseif (str_contains(strtolower($record->name), 'vin')) {
-                            return 'Отчет по VIN';
+                        if (str_contains(strtolower($record->name), "погод")) {
+                            return "Погодный бот";
+                        } elseif (
+                            str_contains(strtolower($record->name), "vin")
+                        ) {
+                            return "Отчет по VIN";
                         }
-                        return '🤖 Общий бот';
+                        return "🤖 Общий бот";
                     }),
-                
-                TextColumn::make('token')
-                    ->label('Токен')
+
+                TextColumn::make("token")
+                    ->label("Токен")
                     ->searchable()
                     //->limit(15)
                     ->tooltip(function ($record) {
-                        return 'Нажмите, чтобы скопировать';
+                        return "Нажмите, чтобы скопировать";
                     })
                     ->copyable()
-                    ->copyMessage('Токен скопирован')
+                    ->copyMessage("Токен скопирован")
                     ->copyMessageDuration(1500),
-                
-                TextColumn::make('chats_count')
-                    ->label('Чаты')
-                    ->counts('chats')
+
+                TextColumn::make("chats_count")
+                    ->label("Чаты")
+                    ->counts("chats")
                     ->sortable(),
                 /*
                 TextColumn::make('created_at')
@@ -59,52 +60,60 @@ class TelegramBotsTable
             ->filters([
                 //
             ])
-             ->actions([
+            ->actions([
                 // Действия над записью (рядом с каждой записью)
-                
-                ])     
+            ])
             ->recordActions([
-                Action::make('setup_webhook')
-                    ->label('Setup webhook')
-                    ->icon('heroicon-o-link')
-                    ->color('success')
+                Action::make("setup_webhook")
+                    ->label("Setup webhook")
+                    ->icon("heroicon-o-link")
+                    ->color("success")
                     ->action(function (TelegramBot $record) {
                         try {
-                            $webhookUrl = 'https://superbly-tough-cusk.cloudpub.ru/telegram/'.$record->token;
+                            $webhookUrl =
+                                "https://superbly-tough-cusk.cloudpub.ru/telegram/" .
+                                $record->token;
                             $handlerClass = $record->handler_class;
-                            // 
+                            //
                             //$webhookUrl = url('/webhook/telegram/' . $record->token);
-                            
-                            $response = Http::post("https://api.telegram.org/bot{$record->token}/setWebhook", [
-                                'url' => $webhookUrl,
-                                'handler' => $handlerClass,
-                            ]);
-                            
-                            if ($response->json()['ok']) {
+
+                            $response = Http::post(
+                                "https://api.telegram.org/bot{$record->token}/setWebhook",
+                                [
+                                    "url" => $webhookUrl,
+                                    "handler" => $handlerClass,
+                                ],
+                            );
+
+                            if ($response->json()["ok"]) {
                                 Notification::make()
-                                    ->title('Вебхук установлен!')
+                                    ->title("Вебхук установлен!")
                                     ->body("URL: {$webhookUrl}")
                                     ->success()
                                     ->send();
                             } else {
-                                throw new \Exception('Ошибка Telegram API</br></br>'.$response);
+                                throw new \Exception(
+                                    "Ошибка Telegram API</br></br>" . $response,
+                                );
                             }
                         } catch (\Exception $e) {
                             Notification::make()
-                                ->title('Ошибка!')
+                                ->title("Ошибка!")
                                 ->body($e->getMessage())
                                 ->danger()
                                 ->send();
                         }
                     })
                     ->requiresConfirmation()
-                    ->modalHeading('Установка вебхука')
-                    ->modalDescription('Вы уверены, что хотите установить вебхук для этого бота?')
-                    ->modalSubmitActionLabel('Установить'),
+                    ->modalHeading("Установка вебхука")
+                    ->modalDescription(
+                        "Вы уверены, что хотите установить вебхук для этого бота?",
+                    )
+                    ->modalSubmitActionLabel("Установить"),
                 ViewAction::make(),
                 EditAction::make(),
-                ]);
-           /* ->toolbarActions([
+            ]);
+        /* ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

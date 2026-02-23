@@ -25,27 +25,31 @@ class AdminPanelProvider extends PanelProvider
     {
         return $panel
             ->default()
-            ->id('admin')
-            ->path('admin')
-            ->homeUrl(env('APP_URL') . '/admin')
+            ->id("admin")
+            ->path("admin")
+            ->homeUrl(env("APP_URL") . "/admin")
             ->topNavigation()
-            ->brandName('Admin')
-            ->favicon(asset('favicon.png'))
+            ->brandName("Admin")
+            ->favicon(asset("favicon.png"))
             ->login()
             ->colors([
                 //'primary' => '#3B82F6',
-                'primary' => Color::Indigo,
+                "primary" => Color::Indigo,
             ])
-            ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
-            ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
-            ->pages([
-                Dashboard::class,
-            ])
-            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
-            ->widgets([
-              //  AccountWidget::class,
-              //  FilamentInfoWidget::class,
-            ])
+            ->discoverResources(
+                in: app_path("Filament/Resources"),
+                for: "App\Filament\Resources",
+            )
+            ->discoverPages(
+                in: app_path("Filament/Pages"),
+                for: "App\Filament\Pages",
+            )
+            ->pages([Dashboard::class])
+            ->discoverWidgets(
+                in: app_path("Filament/Widgets"),
+                for: "App\Filament\Widgets",
+            )
+            ->widgets([AccountWidget::class, FilamentInfoWidget::class])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
@@ -57,8 +61,6 @@ class AdminPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
             ])
-            ->authMiddleware([
-                Authenticate::class,
-            ]);
+            ->authMiddleware([Authenticate::class]);
     }
 }
