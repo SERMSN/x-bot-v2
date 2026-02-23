@@ -8,26 +8,49 @@ use Illuminate\Support\Facades\Log;
 
 class WeatherService
 {
+    private function httpClient()
+    {
+        return Http::timeout(5)->retry(2, 200);
+    }
+
+    private function ensureApiKey(): string
+    {
+        $key = (string) config("services.openweather.key");
+        if ($key === "") {
+            throw new \Exception("OPENWEATHER_API_KEY is not configured");
+        }
+
+        return $key;
+    }
+
     public function getByCoordinates(float $lat, float $lon): array
     {
+        if ($lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
+            throw new \InvalidArgumentException("Invalid coordinates");
+        }
+
         $cacheKey = "weather_{$lat}_{$lon}";
 
         return Cache::remember($cacheKey, now()->addHour(), function () use (
             $lat,
             $lon,
         ) {
-            $response = Http::get(
+            $apiKey = $this->ensureApiKey();
+            $response = $this->httpClient()->get(
                 "https://api.openweathermap.org/data/2.5/weather",
                 [
                     "lat" => $lat,
                     "lon" => $lon,
-                    "appid" => config("services.openweather.key"),
+                    "appid" => $apiKey,
                     "units" => "metric",
                     "lang" => "ru",
                 ],
             );
 
             if (!$response->successful()) {
+                Log::warning("OpenWeather API error", [
+                    "status" => $response->status(),
+                ]);
                 throw new \Exception("API request failed");
             }
 
@@ -37,14 +60,23 @@ class WeatherService
 
     public function validateCity(string $city): array
     {
-        // Приводим к нормализованному виду (первая буква заглавная, остальные строчные)
-        $normalizedCity = ucfirst(strtolower(trim($city)));
+        $city = trim($city);
+        if (mb_strlen($city) < 2) {
+            throw new \InvalidArgumentException("City name too short");
+        }
 
-        $response = Http::get("http://api.openweathermap.org/geo/1.0/direct", [
-            "q" => $normalizedCity,
-            "limit" => 5, // Увеличиваем лимит для лучшего поиска
-            "appid" => config("services.openweather.key"),
-        ]);
+        // Приводим к нормализованному виду (первая буква заглавная, остальные строчные)
+        $normalizedCity = ucfirst(mb_strtolower($city));
+
+        $apiKey = $this->ensureApiKey();
+        $response = $this->httpClient()->get(
+            "https://api.openweathermap.org/geo/1.0/direct",
+            [
+                "q" => $normalizedCity,
+                "limit" => 5, // Увеличиваем лимит для лучшего поиска
+                "appid" => $apiKey,
+            ],
+        );
 
         if (!$response->successful() || empty($response->json())) {
             throw new \Exception("Город не найден");
@@ -88,28 +120,36 @@ class WeatherService
                 $data["main"]["humidity"],
                 $data["wind"]["speed"],
             ),
-            "image" => "https://openweathermap.org/img/wn/{$data["weather"][0]["icon"]}@2x.png",
         ];
     }
 
     public function getByCityName(string $cityName): array
     {
-        $cacheKey = "weather_city_" . strtolower($cityName);
+        $cityName = trim($cityName);
+        if (mb_strlen($cityName) < 2) {
+            throw new \InvalidArgumentException("City name too short");
+        }
+
+        $cacheKey = "weather_city_" . mb_strtolower($cityName);
 
         return Cache::remember($cacheKey, now()->addHour(), function () use (
             $cityName,
         ) {
-            $response = Http::get(
+            $apiKey = $this->ensureApiKey();
+            $response = $this->httpClient()->get(
                 "https://api.openweathermap.org/data/2.5/weather",
                 [
                     "q" => $cityName,
-                    "appid" => config("services.openweather.key"),
+                    "appid" => $apiKey,
                     "units" => "metric",
                     "lang" => "ru",
                 ],
             );
 
             if (!$response->successful()) {
+                Log::warning("OpenWeather API error", [
+                    "status" => $response->status(),
+                ]);
                 throw new \Exception("API request failed");
             }
 

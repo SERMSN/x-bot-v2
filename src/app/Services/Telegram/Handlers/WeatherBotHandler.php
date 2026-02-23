@@ -12,24 +12,21 @@ use Illuminate\Support\Facades\Log;
 
 class WeatherBotHandler extends WebhookHandler
 {
+    private const CANCEL_KEYWORDS = ["отмена", "cancel", "stop", "выход"];
+
     public function start(): void
     {
-        $message = "🌤️ *Добро пожаловать в погодный бот!*\n\n";
-        $message .=
-            "Я помогу вам узнать погоду в любом городе или по вашей локации!\n\n";
-        $message .= "⬇️ *Используйте кнопки ниже:*";
+        $message = "🌤️ *Погодный бот*\n\n";
+        $message .= "Действие: получить погоду.\n";
+        $message .= "Подсказка: можно выбрать по городу или локации.";
 
         $this->chat
             ->markdown($message)
+            ->removeReplyKeyboard()
             ->keyboard(
                 Keyboard::make()
                     ->buttons([
-                        Button::make("📍 По локации")->action(
-                            "get_weather_location",
-                        ),
-                        Button::make("🏙️ По городу")->action(
-                            "get_weather_city",
-                        ),
+                        Button::make("🌤️ Погода")->action("get_weather"),
                         Button::make("❓ Помощь")->action("help"),
                         Button::make("⚙ Настройка")->action("setting"),
                         Button::make("💳 Подписка")->action("subscription"),
@@ -41,18 +38,20 @@ class WeatherBotHandler extends WebhookHandler
     // Помощь по командам погодного бота
     public function help(): void
     {
-        $message = "📚 *Помощь по погодному боту*\n\n";
-        $message .= "*Доступные команды:*\n";
-        $message .= "/start - Начало работы\n";
-        $message .= "/help - Эта справка\n";
-        $message .= "/weather - Получить погоду\n";
-        $message .= "/setting - Настройки бота\n";
-        $message .= "/subscription - Подписка на дополнительные функции\n\n";
+        $message = "📚 *Помощь*\n\n";
+        $message .= "Действие: команды и сценарии.\n";
+        $message .= "Подсказка: можно отправить город текстом.\n\n";
+        $message .= "Команды:\n";
+        $message .= "/start — Главное меню\n";
+        $message .= "/help — Справка\n";
+        $message .= "/weather — Получить погоду\n\n";
+        $message .= "Для отмены отправьте: *Отмена*.";
 
         $this->chat
             ->markdown($message)
             ->keyboard(function ($keyboard) {
                 $keyboard->button("🏠 На главную")->action("start");
+                $keyboard->chunk(2);
                 return $keyboard;
             })
             ->send();
@@ -61,34 +60,52 @@ class WeatherBotHandler extends WebhookHandler
     //
     public function get_weather_location(): void
     {
-        $message = "🌤️ *Получить погоду по локации*\n\n";
-        $message .=
-            "⬇️ Нажмите на кнопку ниже, чтобы передать вашу локацию через клиент Telegram";
+        $message = "📍 *Погода по локации*\n\n";
+        $message .= "Действие: отправьте локацию.\n";
+        $message .= "Подсказка: можно отменить — *Отмена*.";
 
         // Построим reply-клавиатуру с кнопкой, запрашивающей локацию у клиента.
         $replyKeyboard = function ($keyboard) {
-            $keyboard->button("📍Передать локацию")->requestLocation();
+            $keyboard->button("📍 Передать локацию")->requestLocation();
             $keyboard->oneTime(true);
             $keyboard->resize(true);
             return $keyboard;
         };
 
-        if (isset($this->messageId) && $this->messageId) {
-            // подтвердим callback, чтобы убрать «часики» у кнопки
-            if (isset($this->callbackQueryId) && $this->callbackQueryId) {
-                $this->bot->replyWebhook($this->callbackQueryId, "")->send();
-            }
-            // удалим исходное сообщение целиком (включая клавиатуру)
-            //  $this->chat->deleteMessage($this->messageId)->send();
-            // отправим новое сообщение с reply-клавиатурой (запрос локации)
-            $this->chat
-                ->markdown($message)
-                ->replyKeyboard($replyKeyboard)
-                ->send();
-            return;
-        }
-        // Обычный путь — просто отправляем новое сообщение с reply-клавиатурой
         $this->chat->markdown($message)->replyKeyboard($replyKeyboard)->send();
+    }
+
+    public function get_weather_city(): void
+    {
+        $this->sendCityPrompt();
+    }
+
+    public function setting(): void
+    {
+        $this->chat
+            ->markdown(
+                "⚙️ *Настройки*\n\nДействие: настройки.\nПодсказка: раздел в разработке.",
+            )
+            ->keyboard(function ($keyboard) {
+                $keyboard->button("🏠 На главную")->action("start");
+                $keyboard->chunk(2);
+                return $keyboard;
+            })
+            ->send();
+    }
+
+    public function subscription(): void
+    {
+        $this->chat
+            ->markdown(
+                "💳 *Подписка*\n\nДействие: управление подпиской.\nПодсказка: раздел в разработке.",
+            )
+            ->keyboard(function ($keyboard) {
+                $keyboard->button("🏠 На главную")->action("start");
+                $keyboard->chunk(2);
+                return $keyboard;
+            })
+            ->send();
     }
 
     public function weather(): void
@@ -101,48 +118,19 @@ class WeatherBotHandler extends WebhookHandler
      */
     public function handleGetWeather(): void
     {
-        // Демонстрационные данные
-        $cities = ["Москва", "Санкт-Петербург", "Новосибирск", "Екатеринбург"];
-        $randomCity = $cities[array_rand($cities)];
-
-        $message = "🌤️ *Погода в {$randomCity}*\n\n";
-        $message .= "Температура: +" . rand(10, 25) . "°C\n";
-        $message .= "Состояние: Солнечно ☀️\n";
-        $message .= "Влажность: " . rand(50, 80) . "%\n";
-        $message .= "Ветер: " . rand(2, 10) . " м/с\n\n";
-        $message .= "Хорошего дня!";
-
-        $callbackQueryId = $this->callbackQuery?->id();
-
-        if ($callbackQueryId) {
-            $this->bot
-                ->replyWebhook($callbackQueryId, "Обрабатываю запрос...")
-                ->send();
-        }
-
-        // Если у нас есть messageId — редактируем текущее сообщение (текст + клавиатуру),
-        // иначе отправляем новое сообщение как раньше.
-        if (isset($this->messageId) && $this->messageId) {
-            $this->chat
-                ->edit($this->messageId)
-                ->markdown($message)
-                ->keyboard(function ($keyboard) {
-                    $keyboard
-                        ->button("🌤️ Получить погоду")
-                        ->action("get_weather");
-                    $keyboard->button("🏠 На главную")->action("start");
-                    return $keyboard;
-                })
-                ->send();
-
-            return;
-        }
+        $message = "🌤️ *Как получить погоду?*\n\n";
+        $message .= "Действие: выберите способ.\n";
+        $message .= "Подсказка: по локации или по городу.";
 
         $this->chat
             ->markdown($message)
             ->keyboard(function ($keyboard) {
-                $keyboard->button("🌤️ Получить погоду")->action("get_weather");
+                $keyboard
+                    ->button("📍 По локации")
+                    ->action("get_weather_location");
+                $keyboard->button("🏙️ По городу")->action("get_weather_city");
                 $keyboard->button("🏠 На главную")->action("start");
+                $keyboard->chunk(2);
                 return $keyboard;
             })
             ->send();
@@ -166,27 +154,24 @@ class WeatherBotHandler extends WebhookHandler
             ]);
 
             try {
+                if ($lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
+                    throw new \InvalidArgumentException("Invalid coordinates");
+                }
+
                 /** @var WeatherService $weatherService */
                 $weatherService = app(WeatherService::class);
                 $weather = $weatherService->getByCoordinates($lat, $lon);
 
-                $text = $weather["text"] ?? "Погода недоступна.";
-                $image = $weather["image"] ?? null;
-
-                if ($image) {
-                    // Отправляем фото с подписью (HTML) и удаляем reply-клавиатуру
-                    $this->chat
-                        ->photo($image)
-                        ->html($text)
-                        ->removeReplyKeyboard()
-                        ->send();
-                } else {
-                    $this->chat->html($text)->removeReplyKeyboard()->send();
-                }
+                $text =
+                    "📍 Локация получена.\n\n" .
+                    ($weather["text"] ?? "Погода недоступна.");
+                $this->sendWeatherResponse($text, null, true);
             } catch (\Throwable $e) {
                 Log::error("WeatherService error", ["exception" => $e]);
                 $this->chat
-                    ->html("Не удалось получить погоду. Попробуйте позже.")
+                    ->html(
+                        "❌ Не удалось получить погоду по локации.\n\nПопробуйте позже.",
+                    )
                     ->removeReplyKeyboard()
                     ->send();
             }
@@ -202,16 +187,54 @@ class WeatherBotHandler extends WebhookHandler
             return;
         }
 
+        if ($this->isCancel($text->toString())) {
+            $this->start();
+            return;
+        }
+
+        // Попытка интерпретировать текст как город
+        try {
+            $input = trim($text->toString());
+            if (mb_strlen($input) < 2 || !preg_match("/[\\p{L}]/u", $input)) {
+                throw new \InvalidArgumentException("Not a city name");
+            }
+
+            /** @var WeatherService $weatherService */
+            $weatherService = app(WeatherService::class);
+            $validation = $weatherService->validateCity($input);
+            $weather = $weatherService->getByCityName(
+                $validation["normalized"],
+            );
+
+            $responseText = $weather["text"] ?? "Погода недоступна.";
+            $this->sendWeatherResponse($responseText, null, false);
+
+            return;
+        } catch (\Throwable $e) {
+            $this->chat
+                ->markdown(
+                    "❌ *Город не найден.*\n\nДействие: попробуйте еще раз.\nПодсказка: можно отправить *Отмена*.",
+                )
+                ->keyboard(function ($keyboard) {
+                    $keyboard->button("Отмена")->action("start");
+                    $keyboard->chunk(2);
+                    return $keyboard;
+                })
+                ->send();
+            return;
+        }
+
         // Обработка обычного текста
         $message = "🌤️ *Погодный бот*\n\n";
-        $message .= "Вы написали: *{$text}*\n\n";
-        $message .= "Используйте кнопки ниже для получения погоды!";
+        $message .= "Действие: получить погоду.\n";
+        $message .= "Подсказка: можно выбрать по городу или локации.";
 
         $this->chat
             ->markdown($message)
             ->keyboard(function ($keyboard) {
                 $keyboard->button("🌤️ Получить погоду")->action("get_weather");
                 $keyboard->button("❓ Помощь")->action("help");
+                $keyboard->chunk(2);
                 return $keyboard;
             })
             ->send();
@@ -231,9 +254,14 @@ class WeatherBotHandler extends WebhookHandler
             return;
         }
 
+        $this->ackCallbackQuery();
+
         $action = $this->extractActionFromJson($callbackData);
 
         switch ($action) {
+            case "get_weather":
+                $this->handleGetWeather();
+                break;
             case "get_weather_city":
                 $this->get_weather_city();
                 break;
@@ -254,6 +282,66 @@ class WeatherBotHandler extends WebhookHandler
                 break;
             default:
                 $this->chat->html("Действие: {$callbackData}")->send();
+        }
+    }
+
+    private function sendCityPrompt(): void
+    {
+        $message = "🏙️ *Погода по городу*\n\n";
+        $message .= "Действие: введите название города.\n";
+        $message .= "Подсказка: *Москва* или *Санкт-Петербург*.\n";
+        $message .= "Для отмены отправьте: *Отмена*.";
+
+        $this->chat
+            ->markdown($message)
+            ->keyboard(function ($keyboard) {
+                $keyboard->button("Отмена")->action("start");
+                $keyboard->chunk(2);
+                return $keyboard;
+            })
+            ->send();
+    }
+
+    private function isCancel(string $text): bool
+    {
+        $normalized = mb_strtolower(trim($text));
+        return in_array($normalized, self::CANCEL_KEYWORDS, true);
+    }
+
+    private function sendWeatherResponse(
+        string $text,
+        ?string $image,
+        bool $removeReplyKeyboard,
+    ): void {
+        try {
+            if ($image) {
+                $send = $this->chat->photo($image)->html($text);
+            } else {
+                $send = $this->chat->html($text);
+            }
+
+            if ($removeReplyKeyboard) {
+                $send->removeReplyKeyboard();
+            }
+
+            $send->send();
+        } catch (\Throwable $e) {
+            Log::warning("Weather response send failed", [
+                "exception" => $e->getMessage(),
+            ]);
+
+            $send = $this->chat->html($text);
+            if ($removeReplyKeyboard) {
+                $send->removeReplyKeyboard();
+            }
+            $send->send();
+        }
+    }
+
+    private function ackCallbackQuery(string $message = ""): void
+    {
+        if (isset($this->callbackQueryId) && $this->callbackQueryId) {
+            $this->bot->replyWebhook($this->callbackQueryId, $message)->send();
         }
     }
 
