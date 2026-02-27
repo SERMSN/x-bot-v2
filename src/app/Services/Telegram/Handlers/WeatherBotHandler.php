@@ -160,7 +160,11 @@ class WeatherBotHandler extends WebhookHandler
 
                 /** @var WeatherService $weatherService */
                 $weatherService = app(WeatherService::class);
-                $weather = $weatherService->getByCoordinates($lat, $lon);
+                $weather = $weatherService->getByCoordinates(
+                    (int) $this->bot->id,
+                    $lat,
+                    $lon,
+                );
 
                 $text =
                     "📍 Локация получена.\n\n" .
@@ -201,8 +205,12 @@ class WeatherBotHandler extends WebhookHandler
 
             /** @var WeatherService $weatherService */
             $weatherService = app(WeatherService::class);
-            $validation = $weatherService->validateCity($input);
+            $validation = $weatherService->validateCity(
+                (int) $this->bot->id,
+                $input,
+            );
             $weather = $weatherService->getByCityName(
+                (int) $this->bot->id,
                 $validation["normalized"],
             );
 

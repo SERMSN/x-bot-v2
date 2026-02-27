@@ -20,14 +20,15 @@ class TelegramBotResource extends Resource
 {
     protected static ?string $model = TelegramBot::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left';
+    protected static string|BackedEnum|null $navigationIcon = "heroicon-o-chat-bubble-left";
 
-    protected static ?string $navigationLabel = 'Боты';
+    protected static ?string $navigationLabel = "Боты";
 
-    protected static ?string $modelLabel = 'Бот';
+    protected static ?int $navigationSort = 100;
 
-    protected static ?string $pluralModelLabel = 'Боты';
+    protected static ?string $modelLabel = "Бот";
 
+    protected static ?string $pluralModelLabel = "Боты";
 
     public static function form(Schema $schema): Schema
     {
@@ -47,17 +48,17 @@ class TelegramBotResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
-        ];
+                //
+            ];
     }
 
     public static function getPages(): array
     {
         return [
-            'index' => ListTelegramBots::route('/'),
-            'create' => CreateTelegramBot::route('/create'),
-            'view' => ViewTelegramBot::route('/{record}'),
-            'edit' => EditTelegramBot::route('/{record}/edit'),
+            "index" => ListTelegramBots::route("/"),
+            "create" => CreateTelegramBot::route("/create"),
+            "view" => ViewTelegramBot::route("/{record}"),
+            "edit" => EditTelegramBot::route("/{record}/edit"),
         ];
     }
 }

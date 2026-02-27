@@ -52,7 +52,13 @@ class TelegramWebhookController extends Controller
 
             if ($updateId !== null) {
                 $cacheKey = "telegram:webhook:bot:{$bot->id}:update:{$updateId}";
-                $isNew = Cache::add($cacheKey, true, now()->addMinutes(10));
+                $isNew = Cache::add(
+                    $cacheKey,
+                    true,
+                    now()->addMinutes(
+                        (int) config("telegram.webhook.dedup_ttl_minutes", 10),
+                    ),
+                );
 
                 if (!$isNew) {
                     Log::info("🔁 Дубликат update_id, пропуск", [

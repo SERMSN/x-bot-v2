@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 
 class Handler extends WebhookHandler
 {
-    protected array $handlers = [
+    protected array $defaultHandlers = [
         "weather" => WeatherBotHandler::class,
         "vin" => VinBotHandler::class,
     ];
@@ -27,6 +27,11 @@ class Handler extends WebhookHandler
             return EmptyWebhookHandler::class;
         }
 
-        return $this->handlers[$botName] ?? EmptyWebhookHandler::class;
+        $handlers = config("bots.handlers", $this->defaultHandlers);
+        if (!is_array($handlers) || $handlers === []) {
+            $handlers = $this->defaultHandlers;
+        }
+
+        return $handlers[$botName] ?? EmptyWebhookHandler::class;
     }
 }

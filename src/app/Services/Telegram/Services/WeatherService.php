@@ -2,6 +2,7 @@
 
 namespace App\Services\Telegram\Services;
 
+use App\Models\BotSetting;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -10,73 +11,132 @@ class WeatherService
 {
     private function httpClient()
     {
-        return Http::timeout(5)->retry(2, 200);
+        return Http::timeout(
+            (int) config("weather.http.timeout_seconds", 5),
+        )->retry(
+            (int) config("weather.http.retries", 2),
+            (int) config("weather.http.retry_sleep_ms", 200),
+        );
     }
 
-    private function ensureApiKey(): string
+    private function ensureApiConfig(int $botId): array
     {
-        $key = (string) config("services.openweather.key");
-        if ($key === "") {
-            throw new \Exception("OPENWEATHER_API_KEY is not configured");
+        $cacheKey = "bot_settings_openweather_{$botId}";
+
+        return Cache::remember(
+            $cacheKey,
+            now()->addMinutes(
+                (int) config("weather.cache.settings_ttl_minutes", 10),
+            ),
+            function () use ($botId) {
+                $settings = BotSetting::query()
+                    ->where("telegraph_bot_id", $botId)
+                    ->whereIn("key", [
+                        BotSetting::KEY_OPENWEATHER_API_KEY,
+                        BotSetting::KEY_OPENWEATHER_API_URL,
+                    ])
+                    ->pluck("volue", "key");
+
+                $apiKey =
+                    (string) ($settings[BotSetting::KEY_OPENWEATHER_API_KEY] ??
+                        "");
+                $weatherUrl =
+                    (string) ($settings[BotSetting::KEY_OPENWEATHER_API_URL] ??
+                        "");
+
+                if ($apiKey === "") {
+                    throw new \Exception(
+                        "OPENWEATHER_API_KEY is not configured in bot_settings",
+                    );
+                }
+
+                if ($weatherUrl === "") {
+                    throw new \Exception(
+                        "OPENWEATHER_API_URL is not configured in bot_settings",
+                    );
+                }
+
+                return [
+                    "api_key" => $apiKey,
+                    "weather_url" => $weatherUrl,
+                    "geo_url" => $this->resolveGeoUrl($weatherUrl),
+                ];
+            },
+        );
+    }
+
+    private function resolveGeoUrl(string $weatherUrl): string
+    {
+        $normalized = rtrim($weatherUrl, "/");
+
+        if (str_ends_with($normalized, "/data/2.5/weather")) {
+            return str_replace(
+                "/data/2.5/weather",
+                "/geo/1.0/direct",
+                $normalized,
+            );
         }
 
-        return $key;
+        $parts = parse_url($normalized);
+        $scheme = $parts["scheme"] ?? "https";
+        $host = $parts["host"] ?? "api.openweathermap.org";
+        return "{$scheme}://{$host}/geo/1.0/direct";
     }
 
-    public function getByCoordinates(float $lat, float $lon): array
+    public function getByCoordinates(int $botId, float $lat, float $lon): array
     {
         if ($lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
             throw new \InvalidArgumentException("Invalid coordinates");
         }
 
-        $cacheKey = "weather_{$lat}_{$lon}";
+        $cacheKey = "weather_bot_{$botId}_{$lat}_{$lon}";
 
-        return Cache::remember($cacheKey, now()->addHour(), function () use (
-            $lat,
-            $lon,
-        ) {
-            $apiKey = $this->ensureApiKey();
-            $response = $this->httpClient()->get(
-                "https://api.openweathermap.org/data/2.5/weather",
-                [
+        return Cache::remember(
+            $cacheKey,
+            now()->addMinutes(
+                (int) config("weather.cache.weather_ttl_minutes", 60),
+            ),
+            function () use ($botId, $lat, $lon) {
+                $config = $this->ensureApiConfig($botId);
+                $response = $this->httpClient()->get($config["weather_url"], [
                     "lat" => $lat,
                     "lon" => $lon,
-                    "appid" => $apiKey,
+                    "appid" => $config["api_key"],
                     "units" => "metric",
                     "lang" => "ru",
-                ],
-            );
-
-            if (!$response->successful()) {
-                Log::warning("OpenWeather API error", [
-                    "status" => $response->status(),
                 ]);
-                throw new \Exception("API request failed");
-            }
 
-            return $this->formatWeatherData($response->json());
-        });
+                if (!$response->successful()) {
+                    Log::warning("OpenWeather API error", [
+                        "status" => $response->status(),
+                    ]);
+                    throw new \Exception("API request failed");
+                }
+
+                return $this->formatWeatherData($response->json());
+            },
+        );
     }
 
-    public function validateCity(string $city): array
+    public function validateCity(int $botId, string $city): array
     {
         $city = trim($city);
-        if (mb_strlen($city) < 2) {
+        if (
+            mb_strlen($city) <
+            (int) config("weather.validation.city_min_length", 2)
+        ) {
             throw new \InvalidArgumentException("City name too short");
         }
 
         // Приводим к нормализованному виду (первая буква заглавная, остальные строчные)
         $normalizedCity = ucfirst(mb_strtolower($city));
 
-        $apiKey = $this->ensureApiKey();
-        $response = $this->httpClient()->get(
-            "https://api.openweathermap.org/geo/1.0/direct",
-            [
-                "q" => $normalizedCity,
-                "limit" => 5, // Увеличиваем лимит для лучшего поиска
-                "appid" => $apiKey,
-            ],
-        );
+        $config = $this->ensureApiConfig($botId);
+        $response = $this->httpClient()->get($config["geo_url"], [
+            "q" => $normalizedCity,
+            "limit" => (int) config("weather.validation.geo_search_limit", 5),
+            "appid" => $config["api_key"],
+        ]);
 
         if (!$response->successful() || empty($response->json())) {
             throw new \Exception("Город не найден");
@@ -123,38 +183,42 @@ class WeatherService
         ];
     }
 
-    public function getByCityName(string $cityName): array
+    public function getByCityName(int $botId, string $cityName): array
     {
         $cityName = trim($cityName);
-        if (mb_strlen($cityName) < 2) {
+        if (
+            mb_strlen($cityName) <
+            (int) config("weather.validation.city_min_length", 2)
+        ) {
             throw new \InvalidArgumentException("City name too short");
         }
 
-        $cacheKey = "weather_city_" . mb_strtolower($cityName);
+        $cacheKey = "weather_city_bot_{$botId}_" . mb_strtolower($cityName);
 
-        return Cache::remember($cacheKey, now()->addHour(), function () use (
-            $cityName,
-        ) {
-            $apiKey = $this->ensureApiKey();
-            $response = $this->httpClient()->get(
-                "https://api.openweathermap.org/data/2.5/weather",
-                [
+        return Cache::remember(
+            $cacheKey,
+            now()->addMinutes(
+                (int) config("weather.cache.weather_ttl_minutes", 60),
+            ),
+            function () use ($botId, $cityName) {
+                $config = $this->ensureApiConfig($botId);
+                $response = $this->httpClient()->get($config["weather_url"], [
                     "q" => $cityName,
-                    "appid" => $apiKey,
+                    "appid" => $config["api_key"],
                     "units" => "metric",
                     "lang" => "ru",
-                ],
-            );
-
-            if (!$response->successful()) {
-                Log::warning("OpenWeather API error", [
-                    "status" => $response->status(),
                 ]);
-                throw new \Exception("API request failed");
-            }
 
-            return $this->formatWeatherData($response->json());
-        });
+                if (!$response->successful()) {
+                    Log::warning("OpenWeather API error", [
+                        "status" => $response->status(),
+                    ]);
+                    throw new \Exception("API request failed");
+                }
+
+                return $this->formatWeatherData($response->json());
+            },
+        );
     }
 
     protected function declineCityName(string $cityName): string

@@ -70,25 +70,45 @@ class TelegramBotsTable
                     ->color("success")
                     ->action(function (TelegramBot $record) {
                         try {
-                            $webhookUrl =
-                                "https://superbly-tough-cusk.cloudpub.ru/telegram/" .
-                                $record->token;
-                            $handlerClass = $record->handler_class;
-                            //
-                            //$webhookUrl = url('/webhook/telegram/' . $record->token);
+                            $webhookPath = str_replace(
+                                "{token}",
+                                $record->token,
+                                (string) config(
+                                    "telegraph.webhook.url",
+                                    "/telegram/{token}",
+                                ),
+                            );
+                            $webhookDomain =
+                                rtrim(
+                                    (string) (config(
+                                        "telegraph.webhook.domain",
+                                    ) ?:
+                                    config("app.url")),
+                                    "/",
+                                ) .
+                                "/" .
+                                ltrim($webhookPath, "/");
+
+                            $telegramApiBase =
+                                rtrim(
+                                    (string) config(
+                                        "telegraph.telegram_api_url",
+                                        "https://api.telegram.org/",
+                                    ),
+                                    "/",
+                                ) . "/";
 
                             $response = Http::post(
-                                "https://api.telegram.org/bot{$record->token}/setWebhook",
+                                "{$telegramApiBase}bot{$record->token}/setWebhook",
                                 [
-                                    "url" => $webhookUrl,
-                                    "handler" => $handlerClass,
+                                    "url" => $webhookDomain,
                                 ],
                             );
 
                             if ($response->json()["ok"]) {
                                 Notification::make()
                                     ->title("Вебхук установлен!")
-                                    ->body("URL: {$webhookUrl}")
+                                    ->body("URL: {$webhookDomain}")
                                     ->success()
                                     ->send();
                             } else {

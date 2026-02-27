@@ -20,13 +20,15 @@ class TelegraphChatResource extends Resource
 {
     protected static ?string $model = TelegraphChat::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
-    
-    protected static ?string $navigationLabel = 'Чаты ботов';
+    protected static string|BackedEnum|null $navigationIcon = "heroicon-o-chat-bubble-left-right";
 
-    protected static ?string $modelLabel = 'Чат';
+    protected static ?string $navigationLabel = "Чаты ботов";
 
-    protected static ?string $pluralModelLabel = 'Чаты';
+    protected static ?int $navigationSort = 200;
+
+    protected static ?string $modelLabel = "Чат";
+
+    protected static ?string $pluralModelLabel = "Чаты";
 
     public static function form(Schema $schema): Schema
     {
@@ -46,17 +48,17 @@ class TelegraphChatResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
-        ];
+                //
+            ];
     }
 
     public static function getPages(): array
     {
         return [
-            'index' => ListTelegraphChats::route('/'),
-            'create' => CreateTelegraphChat::route('/create'),
-            'view' => ViewTelegraphChat::route('/{record}'),
-            'edit' => EditTelegraphChat::route('/{record}/edit'),
+            "index" => ListTelegraphChats::route("/"),
+            "create" => CreateTelegraphChat::route("/create"),
+            "view" => ViewTelegraphChat::route("/{record}"),
+            "edit" => EditTelegraphChat::route("/{record}/edit"),
         ];
     }
 }
