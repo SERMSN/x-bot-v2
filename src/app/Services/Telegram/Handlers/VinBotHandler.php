@@ -4,185 +4,184 @@ namespace App\Services\Telegram\Handlers;
 
 use DefStudio\Telegraph\Handlers\WebhookHandler;
 use Illuminate\Support\Stringable;
+use Illuminate\Support\Facades\Log;
+use DefStudio\Telegraph\Keyboard\Button;
+use DefStudio\Telegraph\Keyboard\Keyboard;
+use App\Services\Telegram\Services\VinService;
 
 class VinBotHandler extends WebhookHandler
 {
-    /**
-     * Команда /start
-     */
+    private const CANCEL_KEYWORDS = ["отмена", "cancel", "stop", "выход"];
+
     public function start(): void
     {
-        $message = "🚗 *Добро пожаловать в VIN-декодер!*\n\n";
-        $message .=
-            "Я помогу вам получить информацию об автомобиле по VIN-номеру.\n";
-        $message .= "Используйте кнопки ниже:";
+        $message = "🚗 *VIN-бот*\n\n";
+        $message .= "Действие: проверка VIN.\n";
+        $message .= "Подсказка: нажмите кнопку и отправьте VIN из 17 символов.";
 
         $this->chat
             ->markdown($message)
-            ->keyboard(function ($keyboard) {
-                $keyboard->button("🔍 Проверить VIN")->action("check_vin");
-                $keyboard->button("❓ Помощь")->action("help");
-                return $keyboard;
-            })
+            ->removeReplyKeyboard()
+            ->keyboard(
+                Keyboard::make()
+                    ->buttons([
+                        Button::make("🔍 Проверить VIN")->action("check_vin"),
+                        Button::make("❓ Помощь")->action("help"),
+                    ])
+                    ->chunk(2),
+            )
             ->send();
     }
 
-    /**
-     * Команда /help
-     */
     public function help(): void
     {
-        $message = "📚 *Помощь по VIN-декодеру*\n\n";
-        $message .= "Доступные команды:\n";
-        $message .= "/start - Начало работы\n";
-        $message .= "/help - Эта справка\n";
-        $message .= "/vin - Проверить VIN\n\n";
-        $message .= "Просто нажмите кнопку 'Проверить VIN' и введите номер!";
+        $message = "📚 *Помощь*\n\n";
+        $message .= "Команды:\n";
+        $message .= "/start — Главное меню\n";
+        $message .= "/help — Справка\n";
+        $message .= "/vin — Ввести VIN\n\n";
+        $message .= "Формат VIN: 17 символов (A-Z, 0-9, без I/O/Q).\n";
+        $message .= "Пример: *JHMCM56557C404453*.\n";
+        $message .= "Для отмены отправьте: *Отмена*.";
 
         $this->chat
             ->markdown($message)
             ->keyboard(function ($keyboard) {
                 $keyboard->button("🔍 Проверить VIN")->action("check_vin");
                 $keyboard->button("🏠 На главную")->action("start");
+                $keyboard->chunk(2);
                 return $keyboard;
             })
             ->send();
     }
 
-    /**
-     * Команда /vin
-     */
     public function vin(): void
     {
-        $this->handleCheckVin();
+        $this->promptVinInput();
     }
 
-    /**
-     * Обработка нажатия на кнопку "Проверить VIN"
-     */
-    public function handleCheckVin(): void
+    public function check_vin(): void
+    {
+        $this->promptVinInput();
+    }
+
+    public function promptVinInput(): void
     {
         $message = "🚗 *Проверка VIN-номера*\n\n";
-        $message .= "Введите VIN-номер автомобиля (17 символов):\n";
-        $message .= "Например: *JHMCM56557C404453*\n\n";
-        $message .= "Или нажмите кнопку для тестового запроса:";
+        $message .= "Действие: отправьте VIN.\n";
+        $message .= "Подсказка: 17 символов, пример *JHMCM56557C404453*.\n";
+        $message .= "Для отмены отправьте: *Отмена*.";
 
         $this->chat
             ->markdown($message)
             ->keyboard(function ($keyboard) {
-                $keyboard->button("📋 Тестовый VIN")->action("test_vin");
-                $keyboard->button("🔙 Назад")->action("start");
+                $keyboard->button("🏠 На главную")->action("start");
                 return $keyboard;
             })
             ->send();
     }
 
-    /**
-     * Обработка текстовых сообщений
-     */
     protected function handleChatMessage(Stringable $text): void
     {
-        // Если это команда
         if ($text->startsWith("/")) {
             parent::handleChatMessage($text);
             return;
         }
 
-        $vin = $text->toString();
+        if ($this->isCancel($text->toString())) {
+            $this->start();
+            return;
+        }
 
-        // Проверяем, похоже ли на VIN
-        if (strlen($vin) >= 10) {
+        $vin = $this->normalizeVin($text->toString());
+
+        if ($this->isValidVin($vin)) {
             $this->processVin($vin);
         } else {
             $this->chat
-                ->html(
-                    "🔍 *VIN-декодер*\n\nВведите VIN-номер (минимум 10 символов):",
+                ->markdown(
+                    "❌ *Некорректный VIN*\n\nДействие: введите VIN повторно.\nПодсказка: используйте 17 символов без I/O/Q.",
                 )
                 ->keyboard(function ($keyboard) {
-                    $keyboard->button("📋 Тестовый VIN")->action("test_vin");
+                    $keyboard->button("🔍 Проверить VIN")->action("check_vin");
                     $keyboard->button("❓ Помощь")->action("help");
+                    $keyboard->chunk(2);
                     return $keyboard;
                 })
                 ->send();
         }
     }
 
-    /**
-     * Обработка callback query
-     */
     protected function handleCallbackQuery(): void
     {
-        $callbackData = "NULL";
+        $this->extractCallbackQueryData();
+        $this->ackCallbackQuery();
+        $callbackData = $this->callbackQuery?->data();
 
         if (!$callbackData) {
             return;
         }
 
-        switch ($callbackData) {
+        $action = $this->extractActionFromJson($callbackData);
+
+        switch ($action) {
             case "check_vin":
-                $this->handleCheckVin();
+                $this->promptVinInput();
                 break;
-
-            case "test_vin":
-                $this->processVin("JHMCM56557C404453");
-                break;
-
             case "help":
                 $this->help();
                 break;
-
             case "start":
                 $this->start();
                 break;
-
             default:
-                $this->chat->html("Действие: {$callbackData}")->send();
+                $this->chat->html("Действие: {$action}")->send();
         }
     }
 
-    /**
-     * Обработка VIN-номера
-     */
     private function processVin(string $vin): void
     {
-        // Тестовые данные
-        $carData = [
-            "vin" => $vin,
-            "make" => "Honda",
-            "model" => "Accord",
-            "year" => "2007",
-            "engine" => "2.4L L4",
-            "transmission" => "Automatic",
-            "color" => "Silver",
-        ];
+        try {
+            /** @var VinService $vinService */
+            $vinService = app(VinService::class);
+            $carData = $vinService->decode($vin);
 
-        $message = "🚗 *Результаты проверки VIN*\n\n";
-        $message .= "VIN: *{$carData["vin"]}*\n";
-        $message .= "Марка: *{$carData["make"]}*\n";
-        $message .= "Модель: *{$carData["model"]}*\n";
-        $message .= "Год: *{$carData["year"]}*\n";
-        $message .= "Двигатель: *{$carData["engine"]}*\n";
-        $message .= "Коробка: *{$carData["transmission"]}*\n";
-        $message .= "Цвет: *{$carData["color"]}*\n\n";
-        $message .= "✅ Проверка завершена!";
+            $message = "✅ *Результат VIN-проверки*\n\n";
+            $message .= "VIN: *{$carData["vin"]}*\n";
+            $message .= "Марка: *{$carData["make"]}*\n";
+            $message .= "Модель: *{$carData["model"]}*\n";
+            $message .= "Год модели: *{$carData["model_year"]}*\n";
+            $message .= "Тип ТС: *{$carData["vehicle_type"]}*\n";
+            $message .= "Класс кузова: *{$carData["body_class"]}*\n";
+            $message .= "Двигатель: *{$carData["engine_cylinders"]} cyl / {$carData["engine_liters"]}L*\n";
+            $message .= "Топливо: *{$carData["fuel_type"]}*\n";
+            $message .= "Страна сборки: *{$carData["plant_country"]}*\n";
+            $message .= "Завод: *{$carData["plant_company"]}*";
+
+            if (($carData["error_code"] ?? "") !== "0") {
+                $message .= "\n\n⚠️ API сообщило: *{$carData["error_text"]}*";
+            }
+        } catch (\Throwable $e) {
+            Log::error("VIN API error", ["exception" => $e]);
+            $message = "❌ *Не удалось получить данные по VIN*\n\n";
+            $message .= "Попробуйте позже или проверьте корректность VIN.";
+        }
 
         $this->chat
             ->markdown($message)
             ->keyboard(function ($keyboard) {
                 $keyboard->button("🔍 Проверить еще")->action("check_vin");
                 $keyboard->button("🏠 На главную")->action("start");
+                $keyboard->chunk(2);
                 return $keyboard;
             })
             ->send();
     }
 
-    /**
-     * Обработка неизвестной команды
-     */
     public function handleUnknownCommand(Stringable $text): void
     {
         $this->chat
-            ->html(
+            ->markdown(
                 "❌ Неизвестная команда в VIN-декодере: *{$text}*\n\nИспользуйте /help для справки.",
             )
             ->keyboard(function ($keyboard) {
@@ -191,5 +190,73 @@ class VinBotHandler extends WebhookHandler
                 return $keyboard;
             })
             ->send();
+    }
+
+    private function normalizeVin(string $vin): string
+    {
+        $vin = strtoupper(trim($vin));
+        return preg_replace("/[^A-Z0-9]/", "", $vin) ?? "";
+    }
+
+    private function isValidVin(string $vin): bool
+    {
+        $requiredLength = (int) config("vin.validation.length", 17);
+        if (strlen($vin) !== $requiredLength) {
+            return false;
+        }
+
+        return (bool) preg_match("/^[A-HJ-NPR-Z0-9]+$/", $vin);
+    }
+
+    private function isCancel(string $text): bool
+    {
+        $normalized = mb_strtolower(trim($text));
+        return in_array($normalized, self::CANCEL_KEYWORDS, true);
+    }
+
+    private function ackCallbackQuery(string $message = ""): void
+    {
+        if (isset($this->callbackQueryId) && $this->callbackQueryId) {
+            $this->bot->replyWebhook($this->callbackQueryId, $message)->send();
+        }
+    }
+
+    private function extractActionFromJson(mixed $data): string
+    {
+        if (is_object($data) && method_exists($data, "get")) {
+            try {
+                $action = $data->get("action");
+                if (is_string($action) && $action !== "") {
+                    return $action;
+                }
+            } catch (\Throwable $e) {
+                Log::debug("VIN callback parse object error", [
+                    "error" => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if (is_array($data) && isset($data["action"])) {
+            return (string) $data["action"];
+        }
+
+        if (is_string($data)) {
+            $json = trim($data);
+            if (str_starts_with($json, "{")) {
+                $decoded = json_decode($json, true);
+                if (is_array($decoded) && isset($decoded["action"])) {
+                    return (string) $decoded["action"];
+                }
+            }
+
+            $action = str_replace('{"action":"', "", $json);
+            $action = str_replace('"}', "", $action);
+            $action = trim($action, '"\'');
+            if ($action !== "") {
+                return $action;
+            }
+        }
+
+        return "";
     }
 }

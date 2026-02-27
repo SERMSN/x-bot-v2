@@ -27,11 +27,11 @@ class TelegramBotsTable
                     ->sortable()
                     ->description(function ($record) {
                         if (str_contains(strtolower($record->name), "погод")) {
-                            return "Погодный бот";
+                            return "🌤️ погодный бот";
                         } elseif (
                             str_contains(strtolower($record->name), "vin")
                         ) {
-                            return "Отчет по VIN";
+                            return "🚗 отчет по VIN";
                         }
                         return "🤖 Общий бот";
                     }),
