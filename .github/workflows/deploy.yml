@@ -1,0 +1,153 @@
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      REMOTE_LARAVEL_DIR: /home/w/wrcss/x-bot/laravel
+      REMOTE_PUBLIC_DIR: /home/w/wrcss/x-bot/public_html
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${DEPLOY_PORT:-22}" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Prepare changed files list
+        env:
+          GIT_BEFORE: ${{ github.event.before }}
+          GIT_AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$GIT_BEFORE" == "0000000000000000000000000000000000000000" ]]; then
+            git ls-files src | awk '{print "A\t"$0}' > /tmp/changed.tsv
+          else
+            git diff --name-status "$GIT_BEFORE" "$GIT_AFTER" -- src > /tmp/changed.tsv
+          fi
+
+          : > /tmp/upload_laravel.txt
+          : > /tmp/delete_laravel.txt
+          : > /tmp/upload_public.txt
+          : > /tmp/delete_public.txt
+
+          while IFS=$'\t' read -r status p1 p2; do
+            [[ -z "${status:-}" ]] && continue
+
+            old_path="$p1"
+            new_path="$p1"
+            if [[ "$status" =~ ^R|^C ]]; then
+              old_path="$p1"
+              new_path="$p2"
+            fi
+
+            add_path() {
+              local file_path="$1"
+              if [[ "$file_path" == src/public/* ]]; then
+                echo "${file_path#src/public/}" >> /tmp/upload_public.txt
+              elif [[ "$file_path" == src/* ]]; then
+                echo "${file_path#src/}" >> /tmp/upload_laravel.txt
+              fi
+            }
+
+            del_path() {
+              local file_path="$1"
+              if [[ "$file_path" == src/public/* ]]; then
+                echo "${file_path#src/public/}" >> /tmp/delete_public.txt
+              elif [[ "$file_path" == src/* ]]; then
+                echo "${file_path#src/}" >> /tmp/delete_laravel.txt
+              fi
+            }
+
+            if [[ "$status" == D ]]; then
+              del_path "$old_path"
+            elif [[ "$status" =~ ^R ]]; then
+              del_path "$old_path"
+              add_path "$new_path"
+            else
+              add_path "$new_path"
+            fi
+          done < /tmp/changed.tsv
+
+          sort -u -o /tmp/upload_laravel.txt /tmp/upload_laravel.txt
+          sort -u -o /tmp/delete_laravel.txt /tmp/delete_laravel.txt
+          sort -u -o /tmp/upload_public.txt /tmp/upload_public.txt
+          sort -u -o /tmp/delete_public.txt /tmp/delete_public.txt
+
+          echo "Changed files:"
+          cat /tmp/changed.tsv || true
+
+      - name: Ensure remote dirs
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "mkdir -p '${REMOTE_LARAVEL_DIR}' '${REMOTE_PUBLIC_DIR}'"
+
+      - name: Upload changed files to /laravel
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          if [[ -s /tmp/upload_laravel.txt ]]; then
+            rsync -az \
+              --files-from=/tmp/upload_laravel.txt \
+              -e "ssh -p ${DEPLOY_PORT:-22}" \
+              src/ "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_LARAVEL_DIR}/"
+          else
+            echo "No laravel files to upload"
+          fi
+
+      - name: Upload changed files to /public_html
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          if [[ -s /tmp/upload_public.txt ]]; then
+            rsync -az \
+              --files-from=/tmp/upload_public.txt \
+              -e "ssh -p ${DEPLOY_PORT:-22}" \
+              src/public/ "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_PUBLIC_DIR}/"
+          else
+            echo "No public files to upload"
+          fi
+
+      - name: Delete removed files on server
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          if [[ -s /tmp/delete_laravel.txt ]]; then
+            ssh -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "cd '${REMOTE_LARAVEL_DIR}' && xargs -r rm -f" < /tmp/delete_laravel.txt
+          fi
+
+          if [[ -s /tmp/delete_public.txt ]]; then
+            ssh -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "cd '${REMOTE_PUBLIC_DIR}' && xargs -r rm -f" < /tmp/delete_public.txt
+          fi
