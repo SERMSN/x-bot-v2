@@ -26,6 +26,11 @@ class TelegramBot extends TelegraphBot
         return $this->hasMany(BotSetting::class, "telegraph_bot_id");
     }
 
+    public function chatLogs(): HasMany
+    {
+        return $this->hasMany(ChatLog::class, "telegraph_bot_id");
+    }
+
     /**
      * Получить класс хендлера для этого бота
      */

@@ -2,6 +2,7 @@
 
 namespace App\Services\Telegram\Handlers;
 
+use App\Services\Telegram\ChatLogger;
 use DefStudio\Telegraph\Handlers\WebhookHandler;
 use Illuminate\Support\Stringable;
 use Illuminate\Support\Facades\Log;
@@ -31,6 +32,8 @@ class VinBotHandler extends WebhookHandler
                     ->chunk(2),
             )
             ->send();
+
+        $this->logOutgoing($message, ["handler_action" => "start"]);
     }
 
     public function help(): void
@@ -53,6 +56,8 @@ class VinBotHandler extends WebhookHandler
                 return $keyboard;
             })
             ->send();
+
+        $this->logOutgoing($message, ["handler_action" => "help"]);
     }
 
     public function vin(): void
@@ -79,6 +84,8 @@ class VinBotHandler extends WebhookHandler
                 return $keyboard;
             })
             ->send();
+
+        $this->logOutgoing($message, ["handler_action" => "prompt_vin_input"]);
     }
 
     protected function handleChatMessage(Stringable $text): void
@@ -109,6 +116,10 @@ class VinBotHandler extends WebhookHandler
                     return $keyboard;
                 })
                 ->send();
+            $this->logOutgoing("❌ *Некорректный VIN*", [
+                "handler_action" => "invalid_vin",
+                "is_error" => true,
+            ]);
         }
     }
 
@@ -136,6 +147,9 @@ class VinBotHandler extends WebhookHandler
                 break;
             default:
                 $this->chat->html("Действие: {$action}")->send();
+                $this->logOutgoing("Действие: {$action}", [
+                    "handler_action" => "unknown_callback",
+                ]);
         }
     }
 
@@ -176,6 +190,8 @@ class VinBotHandler extends WebhookHandler
                 return $keyboard;
             })
             ->send();
+
+        $this->logOutgoing($message, ["handler_action" => "process_vin"]);
     }
 
     public function handleUnknownCommand(Stringable $text): void
@@ -190,6 +206,11 @@ class VinBotHandler extends WebhookHandler
                 return $keyboard;
             })
             ->send();
+
+        $this->logOutgoing("❌ Неизвестная команда в VIN-декодере: {$text}", [
+            "handler_action" => "unknown_command",
+            "is_error" => true,
+        ]);
     }
 
     private function normalizeVin(string $vin): string
@@ -258,5 +279,16 @@ class VinBotHandler extends WebhookHandler
         }
 
         return "";
+    }
+
+    private function logOutgoing(string $message, array $meta = []): void
+    {
+        app(ChatLogger::class)->logOutbound(
+            (int) $this->bot->id,
+            isset($this->chat->id) ? (int) $this->chat->id : null,
+            isset($this->chat->chat_id) ? (string) $this->chat->chat_id : null,
+            $message,
+            $meta,
+        );
     }
 }

@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Main\Widgets\BotsCountWidget;
 use App\Filament\Main\Widgets\ChatsCountWidget;
+use App\Filament\Main\Widgets\ClientMessagesCountWidget;
 use App\Filament\Main\Pages\Dashboard;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -49,7 +50,11 @@ class MainPanelProvider extends PanelProvider
                 in: app_path("Filament/Main/Widgets"),
                 for: "App\Filament\Main\Widgets",
             )
-            ->widgets([BotsCountWidget::class, ChatsCountWidget::class])
+            ->widgets([
+                BotsCountWidget::class,
+                ChatsCountWidget::class,
+                ClientMessagesCountWidget::class,
+            ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

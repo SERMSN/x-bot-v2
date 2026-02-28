@@ -1,8 +1,8 @@
 <?php
 namespace App\Services\Telegram\Handlers;
 
+use App\Services\Telegram\ChatLogger;
 use DefStudio\Telegraph\Handlers\WebhookHandler;
-use DefStudio\Telegraph\Models\TelegraphChat;
 use Illuminate\Support\Stringable;
 
 use DefStudio\Telegraph\Keyboard\Button;
@@ -34,6 +34,8 @@ class WeatherBotHandler extends WebhookHandler
                     ->chunk(2),
             )
             ->send();
+
+        $this->logOutgoing($message, ["handler_action" => "start"]);
     }
     // Помощь по командам погодного бота
     public function help(): void
@@ -55,6 +57,8 @@ class WeatherBotHandler extends WebhookHandler
                 return $keyboard;
             })
             ->send();
+
+        $this->logOutgoing($message, ["handler_action" => "help"]);
     }
 
     //
@@ -73,6 +77,9 @@ class WeatherBotHandler extends WebhookHandler
         };
 
         $this->chat->markdown($message)->replyKeyboard($replyKeyboard)->send();
+        $this->logOutgoing($message, [
+            "handler_action" => "get_weather_location",
+        ]);
     }
 
     public function get_weather_city(): void
@@ -92,6 +99,8 @@ class WeatherBotHandler extends WebhookHandler
                 return $keyboard;
             })
             ->send();
+
+        $this->logOutgoing("⚙️ *Настройки*", ["handler_action" => "setting"]);
     }
 
     public function subscription(): void
@@ -106,6 +115,10 @@ class WeatherBotHandler extends WebhookHandler
                 return $keyboard;
             })
             ->send();
+
+        $this->logOutgoing("💳 *Подписка*", [
+            "handler_action" => "subscription",
+        ]);
     }
 
     public function weather(): void
@@ -134,6 +147,8 @@ class WeatherBotHandler extends WebhookHandler
                 return $keyboard;
             })
             ->send();
+
+        $this->logOutgoing($message, ["handler_action" => "get_weather"]);
     }
 
     /**
@@ -178,6 +193,13 @@ class WeatherBotHandler extends WebhookHandler
                     )
                     ->removeReplyKeyboard()
                     ->send();
+                $this->logOutgoing(
+                    "❌ Не удалось получить погоду по локации.\n\nПопробуйте позже.",
+                    [
+                        "handler_action" => "get_weather_location",
+                        "is_error" => true,
+                    ],
+                );
             }
 
             return;
@@ -229,6 +251,10 @@ class WeatherBotHandler extends WebhookHandler
                     return $keyboard;
                 })
                 ->send();
+            $this->logOutgoing("❌ *Город не найден.*", [
+                "handler_action" => "city_not_found",
+                "is_error" => true,
+            ]);
             return;
         }
 
@@ -246,6 +272,8 @@ class WeatherBotHandler extends WebhookHandler
                 return $keyboard;
             })
             ->send();
+
+        $this->logOutgoing($message, ["handler_action" => "fallback_menu"]);
     }
 
     /**
@@ -290,6 +318,9 @@ class WeatherBotHandler extends WebhookHandler
                 break;
             default:
                 $this->chat->html("Действие: {$callbackData}")->send();
+                $this->logOutgoing("Действие: {$callbackData}", [
+                    "handler_action" => "unknown_callback",
+                ]);
         }
     }
 
@@ -308,6 +339,8 @@ class WeatherBotHandler extends WebhookHandler
                 return $keyboard;
             })
             ->send();
+
+        $this->logOutgoing($message, ["handler_action" => "get_weather_city"]);
     }
 
     private function isCancel(string $text): bool
@@ -333,6 +366,11 @@ class WeatherBotHandler extends WebhookHandler
             }
 
             $send->send();
+            $this->logOutgoing($text, [
+                "handler_action" => "send_weather_response",
+                "has_image" => $image !== null,
+                "remove_reply_keyboard" => $removeReplyKeyboard,
+            ]);
         } catch (\Throwable $e) {
             Log::warning("Weather response send failed", [
                 "exception" => $e->getMessage(),
@@ -343,7 +381,24 @@ class WeatherBotHandler extends WebhookHandler
                 $send->removeReplyKeyboard();
             }
             $send->send();
+            $this->logOutgoing($text, [
+                "handler_action" => "send_weather_response_fallback",
+                "has_image" => false,
+                "remove_reply_keyboard" => $removeReplyKeyboard,
+                "send_error" => $e->getMessage(),
+            ]);
         }
+    }
+
+    private function logOutgoing(string $message, array $meta = []): void
+    {
+        app(ChatLogger::class)->logOutbound(
+            (int) $this->bot->id,
+            isset($this->chat->id) ? (int) $this->chat->id : null,
+            isset($this->chat->chat_id) ? (string) $this->chat->chat_id : null,
+            $message,
+            $meta,
+        );
     }
 
     private function ackCallbackQuery(string $message = ""): void

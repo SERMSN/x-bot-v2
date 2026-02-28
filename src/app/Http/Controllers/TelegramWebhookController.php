@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Services\Telegram\Handlers\Handler;
+use App\Services\Telegram\ChatLogger;
 
 class TelegramWebhookController extends Controller
 {
@@ -74,6 +75,8 @@ class TelegramWebhookController extends Controller
                 "name" => $bot->name,
                 "handler_class" => $bot->handler_class,
             ]);
+
+            app(ChatLogger::class)->logInbound($request, (int) $bot->id);
 
             $handler = app(Handler::class);
             $handler->handle($request, $bot);
