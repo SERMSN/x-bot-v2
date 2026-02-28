@@ -13,8 +13,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      REMOTE_LARAVEL_DIR: /home/w/wrcss/x-bot/laravel
-      REMOTE_PUBLIC_DIR: /home/w/wrcss/x-bot/public_html
+      REMOTE_LARAVEL_DIR: /home/w/wrcss/x-bot2/src
+      REMOTE_PUBLIC_DIR: /home/w/wrcss/x-bot2/public_html
 
     steps:
       - name: Checkout
@@ -22,16 +22,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure SSH
+      - name: Install sshpass
         env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          mkdir -p ~/.ssh
-          echo "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p "${DEPLOY_PORT:-22}" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          sudo apt-get update
+          sudo apt-get install -y sshpass
 
       - name: Prepare changed files list
         env:
@@ -102,8 +98,9 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
         run: |
-          ssh -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+          sshpass -p "${DEPLOY_PASSWORD}" ssh -o StrictHostKeyChecking=no -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "mkdir -p '${REMOTE_LARAVEL_DIR}' '${REMOTE_PUBLIC_DIR}'"
 
       - name: Upload changed files to /laravel
@@ -111,11 +108,12 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
         run: |
           if [[ -s /tmp/upload_laravel.txt ]]; then
-            rsync -az \
+            sshpass -p "${DEPLOY_PASSWORD}" rsync -az \
               --files-from=/tmp/upload_laravel.txt \
-              -e "ssh -p ${DEPLOY_PORT:-22}" \
+              -e "ssh -o StrictHostKeyChecking=no -p ${DEPLOY_PORT:-22}" \
               src/ "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_LARAVEL_DIR}/"
           else
             echo "No laravel files to upload"
@@ -126,11 +124,12 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
         run: |
           if [[ -s /tmp/upload_public.txt ]]; then
-            rsync -az \
+            sshpass -p "${DEPLOY_PASSWORD}" rsync -az \
               --files-from=/tmp/upload_public.txt \
-              -e "ssh -p ${DEPLOY_PORT:-22}" \
+              -e "ssh -o StrictHostKeyChecking=no -p ${DEPLOY_PORT:-22}" \
               src/public/ "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_PUBLIC_DIR}/"
           else
             echo "No public files to upload"
@@ -141,13 +140,14 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
         run: |
           if [[ -s /tmp/delete_laravel.txt ]]; then
-            ssh -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            sshpass -p "${DEPLOY_PASSWORD}" ssh -o StrictHostKeyChecking=no -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
               "cd '${REMOTE_LARAVEL_DIR}' && xargs -r rm -f" < /tmp/delete_laravel.txt
           fi
 
           if [[ -s /tmp/delete_public.txt ]]; then
-            ssh -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            sshpass -p "${DEPLOY_PASSWORD}" ssh -o StrictHostKeyChecking=no -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
               "cd '${REMOTE_PUBLIC_DIR}' && xargs -r rm -f" < /tmp/delete_public.txt
           fi

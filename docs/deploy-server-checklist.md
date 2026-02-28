@@ -1,55 +1,65 @@
-# Checklist: Timeweb SSH + GitHub Actions (инкрементальный деплой)
+# Checklist: Timeweb (SSH по паролю) + GitHub Actions
 
-Этот чеклист соответствует текущему workflow `.github/workflows/deploy.yml`:
-- заливаются только изменённые файлы между прошлым и текущим push в `main`
-- `src/*` -> `/home/w/wrcss/x-bot/laravel`
-- `src/public/*` -> `/home/w/wrcss/x-bot/public_html`
+Текущие вводные:
+- SSH хост: `vh358.timeweb.ru`
+- SSH пользователь: `wrcss`
+- Авторизация: логин/пароль (без SSH-ключей)
+- Инкрементальный деплой: только изменённые файлы между push в `main`
+- Пути выгрузки:
+`src/*` -> `~/x-bot2/src`
+`src/public/*` -> `~/x-bot2/public_html`
 
-## 1. Подготовить директории на хостинге
+## 1. Проверить доступ по SSH вручную
 
-Подключитесь по SSH и выполните:
-
-```bash
-mkdir -p /home/w/wrcss/x-bot/laravel
-mkdir -p /home/w/wrcss/x-bot/public_html
-```
-
-## 2. Проверить окружение PHP/Composer на сервере
+Локально:
 
 ```bash
-php -v
-composer -V
+ssh wrcss@vh358.timeweb.ru
 ```
 
-Если `composer` отсутствует, установите его через панель Timeweb или вручную в ваш `$PATH`.
+Если вход успешный, можно настраивать CI.
 
-## 3. Первичная полная синхронизация (один раз)
+## 2. Подготовить директории на хостинге
 
-Нужна, чтобы на сервере был полный проект до первого инкрементального деплоя.
-
-Запустите локально из корня репозитория `x-bot-v2`:
+После входа по SSH:
 
 ```bash
-rsync -az --delete -e "ssh -p <PORT>" src/ <USER>@<HOST>:/home/w/wrcss/x-bot/laravel/
-rsync -az --delete -e "ssh -p <PORT>" src/public/ <USER>@<HOST>:/home/w/wrcss/x-bot/public_html/
+mkdir -p ~/x-bot2/src
+mkdir -p ~/x-bot2/public_html
 ```
 
-## 4. Подготовить `.env` на сервере
+## 3. Первичная полная заливка (один раз)
 
-Файл:
-- `/home/w/wrcss/x-bot/laravel/.env`
+Инкрементальный workflow не заменяет первую полную синхронизацию.
 
-Минимум:
+Локально из корня репозитория `x-bot-v2`:
+
+```bash
+rsync -az --delete -e "ssh -p 22" src/ wrcss@vh358.timeweb.ru:~/x-bot2/src/
+rsync -az --delete -e "ssh -p 22" src/public/ wrcss@vh358.timeweb.ru:~/x-bot2/public_html/
+```
+
+## 4. Подготовить `.env` и выполнить первую инициализацию Laravel
+
+На сервере:
+
+```bash
+cd ~/x-bot2/src
+cp .env.example .env
+nano .env
+```
+
+Минимум в `.env`:
 - `APP_ENV=production`
 - `APP_DEBUG=false`
 - `APP_URL=https://<ваш-домен>`
 - `DB_*`
 - `TELEGRAPH_WEBHOOK_SECRET=<secret>` (если используете)
 
-## 5. Первая инициализация Laravel на сервере
+Далее:
 
 ```bash
-cd /home/w/wrcss/x-bot/laravel
+cd ~/x-bot2/src
 composer install --no-dev --optimize-autoloader
 php artisan key:generate
 php artisan migrate --force
@@ -57,65 +67,60 @@ php artisan optimize:clear
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
-```
-
-## 6. Права на служебные директории
-
-```bash
-cd /home/w/wrcss/x-bot/laravel
 chmod -R 775 storage bootstrap/cache
 ```
 
-## 7. SSH-ключ для GitHub Actions
+## 5. Изменить workflow на вход по паролю
 
-Локально:
+Так как ключи не используем, в `.github/workflows/deploy.yml` нужно применять `sshpass`.
 
-```bash
-ssh-keygen -t ed25519 -f github_actions_deploy_key -C "github-actions-deploy"
-```
+Логика:
+1. Установить `sshpass` в раннере.
+2. Все `ssh` и `rsync` запускать через `sshpass -p "$DEPLOY_PASSWORD"`.
 
-Добавьте `github_actions_deploy_key.pub` в `~/.ssh/authorized_keys` пользователя Timeweb, под которым выполняется SSH.
-
-Права:
+Пример шага:
 
 ```bash
-chmod 700 ~/.ssh
-chmod 600 ~/.ssh/authorized_keys
+sudo apt-get update
+sudo apt-get install -y sshpass
+
+sshpass -p "$DEPLOY_PASSWORD" ssh -o StrictHostKeyChecking=no -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p ~/x-bot2/src ~/x-bot2/public_html"
+
+sshpass -p "$DEPLOY_PASSWORD" rsync -az --files-from=/tmp/upload_laravel.txt \
+  -e "ssh -o StrictHostKeyChecking=no -p ${DEPLOY_PORT:-22}" \
+  src/ "${DEPLOY_USER}@${DEPLOY_HOST}:~/x-bot2/src/"
 ```
 
-## 8. GitHub Secrets
+## 6. GitHub Secrets
 
 Repository -> Settings -> Secrets and variables -> Actions -> Secrets:
 
-- `DEPLOY_SSH_KEY` -> содержимое `github_actions_deploy_key` (приватный)
-- `DEPLOY_HOST` -> SSH host Timeweb
-- `DEPLOY_PORT` -> SSH port (обычно `22`)
-- `DEPLOY_USER` -> SSH user
+- `DEPLOY_HOST` = `vh358.timeweb.ru`
+- `DEPLOY_PORT` = `22`
+- `DEPLOY_USER` = `wrcss`
+- `DEPLOY_PASSWORD` = `<SSH пароль>`
 
 Важно:
-- `DEPLOY_PATH` больше не используется в текущем workflow.
+- `DEPLOY_SSH_KEY` в этом варианте не нужен.
+- Пароль хранить только в Secrets.
 
-## 9. Первый автодеплой
+## 7. Первый автодеплой через GitHub
 
 1. Сделайте commit и push в `main`.
 2. Откройте GitHub Actions -> `Deploy Production`.
-3. Убедитесь, что шаги прошли:
-- `Prepare changed files list`
-- `Upload changed files to /laravel`
-- `Upload changed files to /public_html`
+3. Убедитесь, что прошли шаги:
+- построение списка изменённых файлов
+- выгрузка в `~/x-bot2/src`
+- выгрузка в `~/x-bot2/public_html`
+- удаление удалённых файлов
 
-## 10. Что делать после каждого деплоя
+## 8. Что делать после каждого деплоя
 
-Сейчас workflow только копирует изменённые файлы и удаляет удалённые.  
-Если в push были:
-- изменения `composer.json` / `composer.lock`
-- новые миграции
-- изменения в конфиге Laravel
-
-нужно вручную выполнить на сервере:
+Workflow копирует изменённые файлы, но не всегда запускает post-deploy команды Laravel.  
+Если были изменения зависимостей/миграций/конфига, на сервере вручную:
 
 ```bash
-cd /home/w/wrcss/x-bot/laravel
+cd ~/x-bot2/src
 composer install --no-dev --optimize-autoloader
 php artisan migrate --force
 php artisan optimize:clear
@@ -124,15 +129,15 @@ php artisan route:cache
 php artisan view:cache
 ```
 
-## 11. Быстрый чек после деплоя
+## 9. Быстрый чек после деплоя
 
 ```bash
-cd /home/w/wrcss/x-bot/laravel
+cd ~/x-bot2/src
 php artisan about
 php artisan route:list | grep telegram
 ```
 
-Проверить в браузере:
+Проверить:
 - сайт
 - `/admin`
-- webhook-бот (`/start` в Telegram)
+- бот в Telegram (`/start`)
