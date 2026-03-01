@@ -26,14 +26,13 @@ class TelegramBotsTable
                     ->searchable()
                     ->sortable()
                     ->description(function ($record) {
-                        if (str_contains(strtolower($record->name), "погод")) {
-                            return "🌤️ погодный бот";
-                        } elseif (
-                            str_contains(strtolower($record->name), "vin")
-                        ) {
-                            return "🚗 отчет по VIN";
-                        }
-                        return "🤖 Общий бот";
+                        $type = (string) ($record->handler_class ?? "");
+                        $labels = [
+                            "weather" => "🌤️ погодный бот",
+                            "vin" => "🚗 отчет по VIN",
+                            "divination" => "🔮 бот предсказаний",
+                        ];
+                        return $labels[$type] ?? "🤖 Общий бот";
                     }),
 
                 TextColumn::make("token")

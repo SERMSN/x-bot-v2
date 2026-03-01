@@ -25,7 +25,11 @@ class TelegramBotForm
                     ->maxLength(255),
                 Select::make("handler_class")
                     ->label("Хендлер")
-                    ->options(array_keys((array) config("bots.handlers", [])))
+                    ->options(function () {
+                        $handlers = (array) config("bots.handlers", []);
+                        $keys = array_keys($handlers);
+                        return array_combine($keys, $keys) ?: [];
+                    })
                     ->required()
                     ->helperText(
                         "Выберите тип бота (ключ из config/bots.php).",

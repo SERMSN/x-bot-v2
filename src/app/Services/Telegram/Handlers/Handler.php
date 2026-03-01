@@ -12,6 +12,7 @@ class Handler extends WebhookHandler
     protected array $defaultHandlers = [
         "weather" => WeatherBotHandler::class,
         "vin" => VinBotHandler::class,
+        "divination" => DivinationBotHandler::class,
     ];
 
     public function handle(Request $request, TelegraphBot $bot): void
