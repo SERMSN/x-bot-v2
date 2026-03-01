@@ -12,10 +12,8 @@ class BotSettingInfolist
         return $schema->components([
             TextEntry::make("key")->label("Ключ"),
             TextEntry::make("name")->label("Название"),
-            TextEntry::make("volue")->label("Значение"),
-            TextEntry::make("bot.name")
-                ->label("Бот")
-                ->placeholder("-"),
+            TextEntry::make("value")->label("Значение"),
+            TextEntry::make("bot.name")->label("Бот")->placeholder("-"),
             TextEntry::make("created_at")
                 ->label("Создано")
                 ->dateTime()

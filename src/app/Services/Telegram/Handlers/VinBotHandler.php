@@ -158,7 +158,7 @@ class VinBotHandler extends WebhookHandler
         try {
             /** @var VinService $vinService */
             $vinService = app(VinService::class);
-            $carData = $vinService->decode($vin);
+            $carData = $vinService->decode((int) $this->bot->id, $vin);
 
             $message = "✅ *Результат VIN-проверки*\n\n";
             $message .= "VIN: *{$carData["vin"]}*\n";

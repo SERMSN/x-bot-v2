@@ -20,7 +20,7 @@ class ChatLogResource extends Resource
 
     protected static ?string $navigationLabel = "Логи чатов";
 
-    protected static ?int $navigationSort = 350;
+    protected static ?int $navigationSort = 250;
 
     protected static ?string $modelLabel = "Лог чата";
 

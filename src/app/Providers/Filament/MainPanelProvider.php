@@ -6,15 +6,12 @@ use App\Filament\Main\Widgets\BotsCountWidget;
 use App\Filament\Main\Widgets\ChatsCountWidget;
 use App\Filament\Main\Widgets\ClientMessagesCountWidget;
 use App\Filament\Main\Pages\Dashboard;
-use Filament\Http\Middleware\Authenticate;
+use App\Models\AppSetting;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Support\Colors\Color;
-use Filament\Widgets\AccountWidget;
-use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -26,16 +23,22 @@ class MainPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        return $panel
+        $navigationLayout = strtolower(
+            (string) AppSetting::getValue(
+                AppSetting::KEY_MAIN_PANEL_NAVIGATION_LAYOUT,
+                AppSetting::NAVIGATION_TOP,
+            ),
+        );
+        $isTopNavigation = $navigationLayout !== AppSetting::NAVIGATION_LEFT;
+
+        $panel = $panel
             ->id("main")
             ->path("/")
-            //->homeUrl('/')
             ->homeUrl(env("APP_URL"))
-            ->topNavigation()
             ->brandName("X-Bot")
             ->favicon(asset("favicon.png"))
             ->colors([
-                "primary" => Color::Indigo,
+                "primary" => $this->resolvePrimaryColor(),
             ])
             ->discoverResources(
                 in: app_path("Filament/Main/Resources"),
@@ -66,8 +69,26 @@ class MainPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
             ]);
-        /*  ->authMiddleware([
-                Authenticate::class,
-            ]);*/
+
+        if ($isTopNavigation) {
+            $panel = $panel->topNavigation();
+        }
+
+        return $panel;
+    }
+
+    private function resolvePrimaryColor(): string
+    {
+        $defaultColor = "#6366F1";
+        $value = (string) AppSetting::getValue(
+            AppSetting::KEY_MAIN_PANEL_PRIMARY_COLOR,
+            $defaultColor,
+        );
+
+        if (preg_match("/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/", $value) !== 1) {
+            return $defaultColor;
+        }
+
+        return strtoupper($value);
     }
 }

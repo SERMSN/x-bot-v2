@@ -11,15 +11,12 @@ class BotSettingForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            TextInput::make("key")
-                ->label("Ключ")
-                ->required()
-                ->maxLength(255),
+            TextInput::make("key")->label("Ключ")->required()->maxLength(255),
             TextInput::make("name")
                 ->label("Название")
                 ->required()
                 ->maxLength(255),
-            TextInput::make("volue")
+            TextInput::make("value")
                 ->label("Значение")
                 ->required()
                 ->maxLength(255),

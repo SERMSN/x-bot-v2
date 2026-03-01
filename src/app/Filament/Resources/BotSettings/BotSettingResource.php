@@ -14,14 +14,17 @@ use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+use UnitEnum;
 
 class BotSettingResource extends Resource
 {
     protected static ?string $model = BotSetting::class;
 
-    protected static string|BackedEnum|null $navigationIcon = "heroicon-o-cog-6-tooth";
+    protected static string|BackedEnum|null $navigationIcon = null;
 
-    protected static ?string $navigationLabel = "Настройки";
+    protected static string|UnitEnum|null $navigationGroup = "Настройки";
+
+    protected static ?string $navigationLabel = "Настройка ботов";
 
     protected static ?int $navigationSort = 300;
 

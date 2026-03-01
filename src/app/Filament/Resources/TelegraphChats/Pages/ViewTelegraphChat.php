@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\TelegraphChats\Pages;
 
 use App\Filament\Resources\TelegraphChats\TelegraphChatResource;
-use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 
 class ViewTelegraphChat extends ViewRecord
@@ -12,8 +11,6 @@ class ViewTelegraphChat extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        return [
-            EditAction::make(),
-        ];
+        return [];
     }
 }

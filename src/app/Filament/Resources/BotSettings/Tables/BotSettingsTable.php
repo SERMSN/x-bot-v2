@@ -15,15 +15,9 @@ class BotSettingsTable
     {
         return $table
             ->columns([
-                TextColumn::make("key")
-                    ->label("Ключ")
-                    ->searchable(),
-                TextColumn::make("name")
-                    ->label("Название")
-                    ->searchable(),
-                TextColumn::make("volue")
-                    ->label("Значение")
-                    ->searchable(),
+                TextColumn::make("key")->label("Ключ")->searchable(),
+                TextColumn::make("name")->label("Название")->searchable(),
+                TextColumn::make("value")->label("Значение")->searchable(),
                 TextColumn::make("bot.name")
                     ->label("Бот")
                     ->searchable()
@@ -42,14 +36,9 @@ class BotSettingsTable
             ->filters([
                 //
             ])
-            ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
-            ])
+            ->recordActions([ViewAction::make(), EditAction::make()])
             ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
+                BulkActionGroup::make([DeleteBulkAction::make()]),
             ]);
     }
 }

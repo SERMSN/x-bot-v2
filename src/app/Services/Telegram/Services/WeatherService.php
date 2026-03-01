@@ -35,7 +35,7 @@ class WeatherService
                         BotSetting::KEY_OPENWEATHER_API_KEY,
                         BotSetting::KEY_OPENWEATHER_API_URL,
                     ])
-                    ->pluck("volue", "key");
+                    ->pluck("value", "key");
 
                 $apiKey =
                     (string) ($settings[BotSetting::KEY_OPENWEATHER_API_KEY] ??

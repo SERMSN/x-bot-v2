@@ -2,47 +2,77 @@
 
 namespace App\Services\Telegram\Services;
 
+use App\Models\BotSetting;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class VinService
 {
-    public function decode(string $vin): array
+    public function decode(int $botId, string $vin): array
     {
-        $cacheKey = "vin_decode_" . strtoupper($vin);
+        $cacheKey = "vin_decode_{$botId}_" . strtoupper($vin);
         $ttl = (int) config("vin.cache.ttl_minutes", 1440);
 
-        return Cache::remember($cacheKey, now()->addMinutes($ttl), function () use (
-            $vin,
-        ) {
-            $url = rtrim((string) config("vin.api.decode_url"), "/");
-            $timeout = (int) config("vin.api.timeout_seconds", 8);
-            $retries = (int) config("vin.api.retries", 2);
-            $retrySleep = (int) config("vin.api.retry_sleep_ms", 200);
+        return Cache::remember(
+            $cacheKey,
+            now()->addMinutes($ttl),
+            function () use ($botId, $vin) {
+                $url = rtrim($this->getDecodeUrl($botId), "/");
+                $timeout = (int) config("vin.api.timeout_seconds", 8);
+                $retries = (int) config("vin.api.retries", 2);
+                $retrySleep = (int) config("vin.api.retry_sleep_ms", 200);
 
-            $response = Http::timeout($timeout)
-                ->retry($retries, $retrySleep)
-                ->get($url . "/" . urlencode($vin), [
-                    "format" => "json",
-                ]);
+                $response = Http::timeout($timeout)
+                    ->retry($retries, $retrySleep)
+                    ->get($url . "/" . urlencode($vin), [
+                        "format" => "json",
+                    ]);
 
-            if (!$response->successful()) {
-                Log::warning("NHTSA decode VIN request failed", [
-                    "status" => $response->status(),
-                ]);
-                throw new \RuntimeException("VIN API request failed");
-            }
+                if (!$response->successful()) {
+                    Log::warning("NHTSA decode VIN request failed", [
+                        "status" => $response->status(),
+                    ]);
+                    throw new \RuntimeException("VIN API request failed");
+                }
 
-            $payload = $response->json();
-            $row = $payload["Results"][0] ?? null;
+                $payload = $response->json();
+                $row = $payload["Results"][0] ?? null;
 
-            if (!is_array($row)) {
-                throw new \RuntimeException("VIN API invalid response");
-            }
+                if (!is_array($row)) {
+                    throw new \RuntimeException("VIN API invalid response");
+                }
 
-            return $this->mapResponse($vin, $row);
-        });
+                return $this->mapResponse($vin, $row);
+            },
+        );
+    }
+
+    private function getDecodeUrl(int $botId): string
+    {
+        $cacheKey = "vin_settings_{$botId}";
+
+        $settings = Cache::remember(
+            $cacheKey,
+            now()->addMinutes(
+                (int) config("vin.cache.settings_ttl_minutes", 10),
+            ),
+            function () use ($botId) {
+                return BotSetting::query()
+                    ->where("telegraph_bot_id", $botId)
+                    ->where("key", BotSetting::KEY_VIN_API_DECODE_URL)
+                    ->value("value");
+            },
+        );
+
+        $url = trim((string) $settings);
+        if ($url === "") {
+            throw new \RuntimeException(
+                "VIN_API_DECODE_URL is not configured in bot_settings",
+            );
+        }
+
+        return $url;
     }
 
     private function mapResponse(string $vin, array $row): array

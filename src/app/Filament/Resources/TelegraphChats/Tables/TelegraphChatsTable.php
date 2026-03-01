@@ -2,9 +2,6 @@
 
 namespace App\Filament\Resources\TelegraphChats\Tables;
 
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -14,19 +11,31 @@ class TelegraphChatsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function ($query) {
+                return $query->withCount([
+                    "logs as inbound_messages_count" => function ($logQuery) {
+                        $logQuery->where("direction", "in");
+                    },
+                ]);
+            })
             ->columns([
-                TextColumn::make('chat_id')
-                    ->searchable(),
-                TextColumn::make('name')
-                    ->searchable(),
-                TextColumn::make('telegraph_bot_id')
+                TextColumn::make("chat_id")->label("Chat ID")->searchable(),
+                TextColumn::make("name")->label("Название")->searchable(),
+                TextColumn::make("bot.name")
+                    ->label("Бот")
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make("inbound_messages_count")
+                    ->label("Входящих сообщений")
                     ->numeric()
                     ->sortable(),
-                TextColumn::make('created_at')
+                TextColumn::make("created_at")
+                    ->label("Создан")
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('updated_at')
+                TextColumn::make("updated_at")
+                    ->label("Обновлен")
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -34,14 +43,7 @@ class TelegraphChatsTable
             ->filters([
                 //
             ])
-            ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ]);
+            ->recordActions([ViewAction::make()])
+            ->toolbarActions([]);
     }
 }

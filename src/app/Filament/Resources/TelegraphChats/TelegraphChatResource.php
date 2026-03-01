@@ -2,8 +2,6 @@
 
 namespace App\Filament\Resources\TelegraphChats;
 
-use App\Filament\Resources\TelegraphChats\Pages\CreateTelegraphChat;
-use App\Filament\Resources\TelegraphChats\Pages\EditTelegraphChat;
 use App\Filament\Resources\TelegraphChats\Pages\ListTelegraphChats;
 use App\Filament\Resources\TelegraphChats\Pages\ViewTelegraphChat;
 use App\Filament\Resources\TelegraphChats\Schemas\TelegraphChatForm;
@@ -56,9 +54,7 @@ class TelegraphChatResource extends Resource
     {
         return [
             "index" => ListTelegraphChats::route("/"),
-            "create" => CreateTelegraphChat::route("/create"),
             "view" => ViewTelegraphChat::route("/{record}"),
-            "edit" => EditTelegraphChat::route("/{record}/edit"),
         ];
     }
 }
