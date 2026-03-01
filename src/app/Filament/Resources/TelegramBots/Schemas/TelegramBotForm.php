@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\TelegramBots\Schemas;
 
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Select;
 use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -22,6 +23,13 @@ class TelegramBotForm
                     ->label("Название бота")
                     ->required()
                     ->maxLength(255),
+                Select::make("handler_class")
+                    ->label("Хендлер")
+                    ->options(array_keys((array) config("bots.handlers", [])))
+                    ->required()
+                    ->helperText(
+                        "Выберите тип бота (ключ из config/bots.php).",
+                    ),
             ]),
             Section::make("Webhook информация")->schema([
                 TextInput::make("webhook_url")

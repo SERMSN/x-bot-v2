@@ -127,8 +127,8 @@ return [
      * Chat model must be or extend `DefStudio\Telegraph\Models\TelegraphChat::class`
      */
     "models" => [
-        "bot" => DefStudio\Telegraph\Models\TelegraphBot::class,
-        "chat" => DefStudio\Telegraph\Models\TelegraphChat::class,
+        "bot" => App\Models\TelegramBot::class,
+        "chat" => App\Models\TelegraphChat::class,
     ],
 
     "storage" => [

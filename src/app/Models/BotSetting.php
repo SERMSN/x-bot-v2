@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Cache;
 
 class BotSetting extends Model
 {
@@ -17,6 +18,20 @@ class BotSetting extends Model
     protected $table = "bot_settings";
 
     protected $fillable = ["key", "name", "telegraph_bot_id", "value"];
+
+    protected static function booted(): void
+    {
+        $flushCache = function (self $setting): void {
+            $botId = $setting->telegraph_bot_id;
+            if ($botId) {
+                Cache::forget("bot_settings_openweather_{$botId}");
+                Cache::forget("vin_settings_{$botId}");
+            }
+        };
+
+        static::saved($flushCache);
+        static::deleted($flushCache);
+    }
 
     public function bot(): BelongsTo
     {
