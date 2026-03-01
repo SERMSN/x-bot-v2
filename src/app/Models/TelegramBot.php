@@ -9,13 +9,7 @@ class TelegramBot extends TelegraphBot
 {
     protected $table = "telegraph_bots";
 
-    protected $fillable = [
-        "name",
-        "token",
-        "handler_class",
-        //  'webhook_url',
-        //  'settings',
-    ];
+    protected $fillable = ["name", "token", "handler_class"];
 
     protected $casts = [
         "settings" => "array",
