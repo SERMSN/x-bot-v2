@@ -49,7 +49,7 @@ class DivinationBotHandler extends WebhookHandler
 
     public function start(): void
     {
-        $message = "🔮 *Бот-оракул*\n\n";
+        $message = "🔮 *Бот-оракул 2*\n\n";
         $message .= "Выберите действие в меню ниже.";
 
         $this->chat
