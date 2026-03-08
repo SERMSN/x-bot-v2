@@ -100,6 +100,9 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
         run: |
+          [[ -n "${DEPLOY_HOST}" ]] || { echo "DEPLOY_HOST is empty"; exit 1; }
+          [[ -n "${DEPLOY_USER}" ]] || { echo "DEPLOY_USER is empty"; exit 1; }
+          [[ -n "${DEPLOY_PASSWORD}" ]] || { echo "DEPLOY_PASSWORD is empty"; exit 1; }
           sshpass -p "${DEPLOY_PASSWORD}" ssh -o StrictHostKeyChecking=no -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "mkdir -p '${REMOTE_LARAVEL_DIR}' '${REMOTE_PUBLIC_DIR}'"
 
