@@ -154,3 +154,13 @@ jobs:
             sshpass -p "${DEPLOY_PASSWORD}" ssh -o StrictHostKeyChecking=no -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
               "cd '${REMOTE_PUBLIC_DIR}' && xargs -r rm -f" < /tmp/delete_public.txt
           fi
+
+      - name: Post-deploy artisan commands
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST || vars.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || vars.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER || vars.DEPLOY_USER }}
+          DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD || vars.DEPLOY_PASSWORD }}
+        run: |
+          sshpass -p "${DEPLOY_PASSWORD}" ssh -o StrictHostKeyChecking=no -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cd '${REMOTE_LARAVEL_DIR}' && /opt/php84/bin/php artisan optimize:clear && /opt/php84/bin/php artisan filament:upgrade"
