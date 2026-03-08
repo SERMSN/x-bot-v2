@@ -59,6 +59,7 @@ return array(
     'App\\Providers\\Filament\\AdminPanelProvider' => $baseDir . '/app/Providers/Filament/AdminPanelProvider.php',
     'App\\Providers\\Filament\\MainPanelProvider' => $baseDir . '/app/Providers/Filament/MainPanelProvider.php',
     'App\\Services\\Telegram\\ChatLogger' => $baseDir . '/app/Services/Telegram/ChatLogger.php',
+    'App\\Services\\Telegram\\Handlers\\DivinationBotHandler' => $baseDir . '/app/Services/Telegram/Handlers/DivinationBotHandler.php',
     'App\\Services\\Telegram\\Handlers\\Handler' => $baseDir . '/app/Services/Telegram/Handlers/Handler.php',
     'App\\Services\\Telegram\\Handlers\\VinBotHandler' => $baseDir . '/app/Services/Telegram/Handlers/VinBotHandler.php',
     'App\\Services\\Telegram\\Handlers\\WeatherBotHandler' => $baseDir . '/app/Services/Telegram/Handlers/WeatherBotHandler.php',

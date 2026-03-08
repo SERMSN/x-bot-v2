@@ -2,15 +2,12 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use DefStudio\Telegraph\Models\TelegraphChat as BaseTelegraphChat;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class TelegraphChat extends Model
+class TelegraphChat extends BaseTelegraphChat
 {
-    use HasFactory;
-
     // Используем таблицу от Telegraph
     protected $table = "telegraph_chats";
 

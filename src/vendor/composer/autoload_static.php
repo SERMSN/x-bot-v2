@@ -735,6 +735,7 @@ class ComposerStaticInitc514d8f7b9fc5970bdd94287905ef584
         'App\\Providers\\Filament\\AdminPanelProvider' => __DIR__ . '/../..' . '/app/Providers/Filament/AdminPanelProvider.php',
         'App\\Providers\\Filament\\MainPanelProvider' => __DIR__ . '/../..' . '/app/Providers/Filament/MainPanelProvider.php',
         'App\\Services\\Telegram\\ChatLogger' => __DIR__ . '/../..' . '/app/Services/Telegram/ChatLogger.php',
+        'App\\Services\\Telegram\\Handlers\\DivinationBotHandler' => __DIR__ . '/../..' . '/app/Services/Telegram/Handlers/DivinationBotHandler.php',
         'App\\Services\\Telegram\\Handlers\\Handler' => __DIR__ . '/../..' . '/app/Services/Telegram/Handlers/Handler.php',
         'App\\Services\\Telegram\\Handlers\\VinBotHandler' => __DIR__ . '/../..' . '/app/Services/Telegram/Handlers/VinBotHandler.php',
         'App\\Services\\Telegram\\Handlers\\WeatherBotHandler' => __DIR__ . '/../..' . '/app/Services/Telegram/Handlers/WeatherBotHandler.php',
