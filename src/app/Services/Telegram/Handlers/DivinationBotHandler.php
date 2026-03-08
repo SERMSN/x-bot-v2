@@ -59,7 +59,7 @@ class DivinationBotHandler extends WebhookHandler
                 Keyboard::make()
                     ->buttons([
                         Button::make(
-                            " Генерация случайного предсказания",
+                            "🔯 Генерация случайного предсказания",
                         )->action("random_prediction"),
                         Button::make("❓ Помощь")->action("help"),
                     ])
@@ -100,7 +100,7 @@ class DivinationBotHandler extends WebhookHandler
     {
         $prediction = self::PREDICTIONS[array_rand(self::PREDICTIONS)];
 
-        $message = "⇣ *Ваше предсказание* ⇣\n\n";
+        $message = "🔽 *Ваше предсказание*\n\n";
         $message .= $prediction;
 
         $telegraph =
@@ -113,7 +113,7 @@ class DivinationBotHandler extends WebhookHandler
             ->keyboard(
                 Keyboard::make()
                     ->buttons([
-                        Button::make("♉ Еще предсказание")->action(
+                        Button::make("🔯 Еще предсказание")->action(
                             "random_prediction",
                         ),
                         Button::make("🏠 На главную")->action("start"),

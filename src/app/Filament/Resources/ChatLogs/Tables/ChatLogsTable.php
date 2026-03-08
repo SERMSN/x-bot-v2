@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\ChatLogs\Tables;
 
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -72,9 +74,9 @@ class ChatLogsTable
                         "response" => "response",
                     ]),
             ])
-            ->recordActions([
-                ViewAction::make(),
-            ])
-            ->toolbarActions([]);
+            ->recordActions([ViewAction::make()])
+            ->toolbarActions([
+                BulkActionGroup::make([DeleteBulkAction::make()]),
+            ]);
     }
 }

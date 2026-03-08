@@ -2,10 +2,8 @@
 
 namespace App\Providers\Filament;
 
-use App\Filament\Main\Widgets\BotsCountWidget;
-use App\Filament\Main\Widgets\ChatsCountWidget;
-use App\Filament\Main\Widgets\ClientMessagesCountWidget;
 use App\Filament\Main\Pages\Dashboard;
+use App\Filament\Main\Widgets\BotsShowcaseWidget;
 use App\Models\AppSetting;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -49,15 +47,7 @@ class MainPanelProvider extends PanelProvider
                 for: "App\Filament\Main\Pages",
             )
             ->pages([Dashboard::class])
-            ->discoverWidgets(
-                in: app_path("Filament/Main/Widgets"),
-                for: "App\Filament\Main\Widgets",
-            )
-            ->widgets([
-                BotsCountWidget::class,
-                ChatsCountWidget::class,
-                ClientMessagesCountWidget::class,
-            ])
+            ->widgets([BotsShowcaseWidget::class])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

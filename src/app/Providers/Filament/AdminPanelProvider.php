@@ -2,13 +2,16 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\Dashboard;
+use App\Filament\Main\Widgets\BotsCountWidget;
+use App\Filament\Main\Widgets\ChatsCountWidget;
+use App\Filament\Main\Widgets\ClientMessagesCountWidget;
 use App\Models\AppSetting;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
-use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Widgets\AccountWidget;
@@ -56,7 +59,13 @@ class AdminPanelProvider extends PanelProvider
                 in: app_path("Filament/Widgets"),
                 for: "App\Filament\Widgets",
             )
-            ->widgets([AccountWidget::class, FilamentInfoWidget::class])
+            ->widgets([
+                BotsCountWidget::class,
+                ChatsCountWidget::class,
+                ClientMessagesCountWidget::class,
+                //AccountWidget::class,
+                //FilamentInfoWidget::class,
+            ])
             ->navigationGroups([
                 NavigationGroup::make("Настройки")->icon(
                     "heroicon-o-cog-8-tooth",

@@ -8,6 +8,8 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class ClientMessagesCountWidget extends StatsOverviewWidget
 {
+    protected int|string|array $columnSpan = 1;
+
     protected function getStats(): array
     {
         $count = ChatLog::query()
