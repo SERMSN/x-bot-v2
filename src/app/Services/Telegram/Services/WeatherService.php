@@ -60,6 +60,7 @@ class WeatherService
                     "api_key" => $apiKey,
                     "weather_url" => $weatherUrl,
                     "geo_url" => $this->resolveGeoUrl($weatherUrl),
+                    "forecast_url" => $this->resolveForecastUrl($weatherUrl),
                 ];
             },
         );
@@ -81,6 +82,21 @@ class WeatherService
         $scheme = $parts["scheme"] ?? "https";
         $host = $parts["host"] ?? "api.openweathermap.org";
         return "{$scheme}://{$host}/geo/1.0/direct";
+    }
+
+    private function resolveForecastUrl(string $weatherUrl): string
+    {
+        $normalized = rtrim($weatherUrl, "/");
+
+        if (str_ends_with($normalized, "/data/2.5/weather")) {
+            return str_replace(
+                "/data/2.5/weather",
+                "/data/2.5/forecast",
+                $normalized,
+            );
+        }
+
+        return "";
     }
 
     public function getByCoordinates(int $botId, float $lat, float $lon): array
@@ -113,7 +129,16 @@ class WeatherService
                     throw new \Exception("API request failed");
                 }
 
-                return $this->formatWeatherData($response->json());
+                $forecastData = $this->fetchForecastByCoordinates(
+                    $config,
+                    $lat,
+                    $lon,
+                );
+
+                return $this->formatWeatherData(
+                    $response->json(),
+                    $forecastData,
+                );
             },
         );
     }
@@ -163,23 +188,32 @@ class WeatherService
         ];
     }
 
-    protected function formatWeatherData(array $data): array
-    {
+    protected function formatWeatherData(
+        array $data,
+        ?array $forecastData = null,
+    ): array {
         $cityName = $this->declineCityName($data["name"]);
 
+        $text = sprintf(
+            "🌦️ <b>Погода в %s</b>\n\n" .
+                "🌡 Температура: <b>%.1f°C</b>\n" .
+                "☁️ Состояние: <b>%s</b>\n" .
+                "💧 Влажность: <b>%d%%</b>\n" .
+                "🌬 Ветер: <b>%.1f м/с</b>",
+            $cityName,
+            $data["main"]["temp"],
+            $data["weather"][0]["description"],
+            $data["main"]["humidity"],
+            $data["wind"]["speed"],
+        );
+
+        $hourlyText = $this->formatHourlyForecast($forecastData, $data);
+        if ($hourlyText !== "") {
+            $text .= "\n\n" . $hourlyText;
+        }
+
         return [
-            "text" => sprintf(
-                "🌦️ <b>Погода в %s</b>\n\n" .
-                    "🌡 Температура: <b>%.1f°C</b>\n" .
-                    "☁️ Состояние: <b>%s</b>\n" .
-                    "💧 Влажность: <b>%d%%</b>\n" .
-                    "🌬 Ветер: <b>%.1f м/с</b>",
-                $cityName,
-                $data["main"]["temp"],
-                $data["weather"][0]["description"],
-                $data["main"]["humidity"],
-                $data["wind"]["speed"],
-            ),
+            "text" => $text,
         ];
     }
 
@@ -216,8 +250,135 @@ class WeatherService
                     throw new \Exception("API request failed");
                 }
 
-                return $this->formatWeatherData($response->json());
+                $forecastData = $this->fetchForecastByCityName(
+                    $config,
+                    $cityName,
+                );
+
+                return $this->formatWeatherData(
+                    $response->json(),
+                    $forecastData,
+                );
             },
+        );
+    }
+
+    private function fetchForecastByCoordinates(
+        array $config,
+        float $lat,
+        float $lon,
+    ): ?array {
+        if ($config["forecast_url"] === "") {
+            return null;
+        }
+
+        $response = $this->httpClient()->get($config["forecast_url"], [
+            "lat" => $lat,
+            "lon" => $lon,
+            "appid" => $config["api_key"],
+            "units" => "metric",
+            "lang" => "ru",
+        ]);
+
+        if (!$response->successful()) {
+            Log::warning("OpenWeather forecast API error", [
+                "status" => $response->status(),
+            ]);
+            return null;
+        }
+
+        return $response->json();
+    }
+
+    private function fetchForecastByCityName(
+        array $config,
+        string $cityName,
+    ): ?array {
+        if ($config["forecast_url"] === "") {
+            return null;
+        }
+
+        $response = $this->httpClient()->get($config["forecast_url"], [
+            "q" => $cityName,
+            "appid" => $config["api_key"],
+            "units" => "metric",
+            "lang" => "ru",
+        ]);
+
+        if (!$response->successful()) {
+            Log::warning("OpenWeather forecast API error", [
+                "status" => $response->status(),
+            ]);
+            return null;
+        }
+
+        return $response->json();
+    }
+
+    private function formatHourlyForecast(
+        ?array $forecastData,
+        array $currentData,
+    ): string {
+        if (
+            $forecastData === null ||
+            !isset($forecastData["list"]) ||
+            !is_array($forecastData["list"])
+        ) {
+            return "";
+        }
+
+        $timezoneOffset =
+            (int) ($forecastData["city"]["timezone"] ??
+                ($currentData["timezone"] ?? 0));
+        $timezone = $this->timezoneFromOffset($timezoneOffset);
+
+        $nowUtc = (int) ($currentData["dt"] ?? time());
+        $nowLocal = new \DateTimeImmutable("@{$nowUtc}")->setTimezone(
+            $timezone,
+        );
+        $endOfDayLocal = $nowLocal->setTime(23, 59, 59);
+
+        $rows = [];
+        foreach ($forecastData["list"] as $item) {
+            if (!isset($item["dt"], $item["main"]["temp"])) {
+                continue;
+            }
+
+            $itemLocal = new \DateTimeImmutable("@" . $item["dt"])->setTimezone(
+                $timezone,
+            );
+
+            if ($itemLocal <= $nowLocal) {
+                continue;
+            }
+
+            if ($itemLocal > $endOfDayLocal) {
+                continue;
+            }
+
+            $rows[] = sprintf(
+                "%s — <b>%.1f°C</b>",
+                $itemLocal->format("H:i"),
+                $item["main"]["temp"],
+            );
+        }
+
+        if ($rows === []) {
+            return "";
+        }
+
+        return "🕒 До конца дня:\n" . implode("\n", $rows);
+    }
+
+    private function timezoneFromOffset(int $offsetSeconds): \DateTimeZone
+    {
+        $sign = $offsetSeconds >= 0 ? "+" : "-";
+        $abs = abs($offsetSeconds);
+        $hours = intdiv($abs, 3600);
+        $minutes = intdiv($abs % 3600, 60);
+
+        return new \DateTimeZone(
+            sprintf("%s%02d:%02d", $sign, $hours, $minutes),
         );
     }
 
