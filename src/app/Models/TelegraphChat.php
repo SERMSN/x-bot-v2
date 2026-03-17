@@ -11,7 +11,12 @@ class TelegraphChat extends BaseTelegraphChat
     // Используем таблицу от Telegraph
     protected $table = "telegraph_chats";
 
-    protected $fillable = ["chat_id", "name", "telegraph_bot_id"];
+    protected $fillable = [
+        "chat_id",
+        "name",
+        "telegraph_bot_id",
+        "weather_city",
+    ];
 
     public function bot(): BelongsTo
     {

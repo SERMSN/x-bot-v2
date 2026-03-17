@@ -7,7 +7,9 @@ use Illuminate\Support\Stringable;
 
 use DefStudio\Telegraph\Keyboard\Button;
 use DefStudio\Telegraph\Keyboard\Keyboard;
+use App\Models\TelegraphChat;
 use App\Services\Telegram\Services\WeatherService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class WeatherBotHandler extends WebhookHandler
@@ -89,11 +91,23 @@ class WeatherBotHandler extends WebhookHandler
 
     public function setting(): void
     {
+        $savedCity = $this->getSavedCity();
+        $savedCityLine =
+            $savedCity !== null
+                ? "Сохраненный город: *{$savedCity}*.\n"
+                : "Сохраненный город: *не задан*.\n";
+
         $this->chat
             ->markdown(
-                "⚙️ *Настройки*\n\nДействие: настройки.\nПодсказка: раздел в разработке.",
+                "⚙️ *Настройки*\n\n" .
+                    "Действие: управление настройками.\n" .
+                    $savedCityLine .
+                    "Подсказка: можно сохранить город для быстрого прогноза.",
             )
             ->keyboard(function ($keyboard) {
+                $keyboard
+                    ->button("🏙️ Сохранить город")
+                    ->action("set_default_city");
                 $keyboard->button("🏠 На главную")->action("start");
                 $keyboard->chunk(2);
                 return $keyboard;
@@ -131,9 +145,14 @@ class WeatherBotHandler extends WebhookHandler
      */
     public function handleGetWeather(): void
     {
+        $savedCity = $this->getSavedCity();
+
         $message = "🌤️ *Как получить погоду?*\n\n";
         $message .= "Действие: выберите способ.\n";
-        $message .= "Подсказка: по локации или по городу.";
+        $message .=
+            $savedCity !== null
+                ? "Подсказка: по локации, по городу или из сохраненного."
+                : "Подсказка: по локации или по городу.";
 
         $this->chat
             ->markdown($message)
@@ -142,6 +161,9 @@ class WeatherBotHandler extends WebhookHandler
                     ->button("📍 По локации")
                     ->action("get_weather_location");
                 $keyboard->button("🏙️ По городу")->action("get_weather_city");
+                $keyboard
+                    ->button("⭐ Сохраненный город")
+                    ->action("get_weather_saved_city");
                 $keyboard->button("🏠 На главную")->action("start");
                 $keyboard->chunk(2);
                 return $keyboard;
@@ -214,7 +236,13 @@ class WeatherBotHandler extends WebhookHandler
         }
 
         if ($this->isCancel($text->toString())) {
+            $this->clearAwaitingSavedCity();
             $this->start();
+            return;
+        }
+
+        if ($this->isAwaitingSavedCity()) {
+            $this->handleSaveCityInput($text->toString());
             return;
         }
 
@@ -304,6 +332,9 @@ class WeatherBotHandler extends WebhookHandler
             case "get_weather_location":
                 $this->get_weather_location();
                 break;
+            case "get_weather_saved_city":
+                $this->get_weather_saved_city();
+                break;
             case "help":
                 $this->help();
                 break;
@@ -315,6 +346,9 @@ class WeatherBotHandler extends WebhookHandler
                 break;
             case "setting":
                 $this->setting();
+                break;
+            case "set_default_city":
+                $this->set_default_city();
                 break;
             default:
                 $this->chat->html("Действие: {$callbackData}")->send();
@@ -343,10 +377,246 @@ class WeatherBotHandler extends WebhookHandler
         $this->logOutgoing($message, ["handler_action" => "get_weather_city"]);
     }
 
+    public function set_default_city(): void
+    {
+        $this->setAwaitingSavedCity();
+
+        $message = "🏙️ *Сохранить город*\n\n";
+        $message .= "Действие: введите название города.\n";
+        $message .= "Подсказка: *Москва* или *Санкт-Петербург*.\n";
+        $message .= "Для отмены отправьте: *Отмена*.";
+
+        $this->chat
+            ->markdown($message)
+            ->keyboard(function ($keyboard) {
+                $keyboard->button("Отмена")->action("start");
+                $keyboard->chunk(2);
+                return $keyboard;
+            })
+            ->send();
+
+        $this->logOutgoing($message, ["handler_action" => "set_default_city"]);
+    }
+
+    public function get_weather_saved_city(): void
+    {
+        $savedCity = $this->getSavedCity();
+
+        if ($savedCity === null) {
+            $message = "⭐ *Сохраненный город не задан*\n\n";
+            $message .= "Действие: перейдите в настройки и сохраните город.";
+
+            $this->chat
+                ->markdown($message)
+                ->keyboard(function ($keyboard) {
+                    $keyboard->button("⚙ Настройка")->action("setting");
+                    $keyboard->button("🏠 На главную")->action("start");
+                    $keyboard->chunk(2);
+                    return $keyboard;
+                })
+                ->send();
+
+            $this->logOutgoing($message, [
+                "handler_action" => "get_weather_saved_city",
+                "is_error" => true,
+            ]);
+            return;
+        }
+
+        try {
+            /** @var WeatherService $weatherService */
+            $weatherService = app(WeatherService::class);
+            $weather = $weatherService->getByCityName(
+                (int) $this->bot->id,
+                $savedCity,
+            );
+
+            $responseText = $weather["text"] ?? "Погода недоступна.";
+            $this->sendWeatherResponse($responseText, null, false);
+        } catch (\Throwable $e) {
+            Log::error("WeatherService saved city error", [
+                "exception" => $e,
+            ]);
+            $this->chat
+                ->markdown(
+                    "❌ *Не удалось получить погоду по сохраненному городу.*\n\nПопробуйте позже.",
+                )
+                ->keyboard(function ($keyboard) {
+                    $keyboard->button("🏠 На главную")->action("start");
+                    $keyboard->chunk(2);
+                    return $keyboard;
+                })
+                ->send();
+            $this->logOutgoing(
+                "❌ *Не удалось получить погоду по сохраненному городу.*",
+                [
+                    "handler_action" => "get_weather_saved_city",
+                    "is_error" => true,
+                ],
+            );
+        }
+    }
+
     private function isCancel(string $text): bool
     {
         $normalized = mb_strtolower(trim($text));
         return in_array($normalized, self::CANCEL_KEYWORDS, true);
+    }
+
+    private function handleSaveCityInput(string $input): void
+    {
+        $this->clearAwaitingSavedCity();
+        $input = trim($input);
+
+        if (mb_strlen($input) < 2 || !preg_match("/[\\p{L}]/u", $input)) {
+            $this->chat
+                ->markdown(
+                    "❌ *Некорректное название города.*\n\nДействие: попробуйте еще раз.\nПодсказка: можно отправить *Отмена*.",
+                )
+                ->keyboard(function ($keyboard) {
+                    $keyboard->button("Отмена")->action("start");
+                    $keyboard->chunk(2);
+                    return $keyboard;
+                })
+                ->send();
+            $this->logOutgoing("❌ *Некорректное название города.*", [
+                "handler_action" => "set_default_city_invalid",
+                "is_error" => true,
+            ]);
+            return;
+        }
+
+        try {
+            /** @var WeatherService $weatherService */
+            $weatherService = app(WeatherService::class);
+            $validation = $weatherService->validateCity(
+                (int) $this->bot->id,
+                $input,
+            );
+
+            $savedCity = $validation["normalized"];
+            $this->saveCity($savedCity);
+
+            $message = "✅ *Город сохранен*\n\n";
+            $message .= "Сохраненный город: *{$savedCity}*.\n";
+            $message .= "Теперь можно получать погоду из сохраненного города.";
+
+            $this->chat
+                ->markdown($message)
+                ->keyboard(function ($keyboard) {
+                    $keyboard->button("🌤️ Погода")->action("get_weather");
+                    $keyboard->button("🏠 На главную")->action("start");
+                    $keyboard->chunk(2);
+                    return $keyboard;
+                })
+                ->send();
+
+            $this->logOutgoing($message, [
+                "handler_action" => "set_default_city_success",
+            ]);
+        } catch (\Throwable $e) {
+            Log::error("WeatherService save city error", ["exception" => $e]);
+
+            $this->chat
+                ->markdown(
+                    "❌ *Город не найден.*\n\nДействие: попробуйте еще раз.\nПодсказка: можно отправить *Отмена*.",
+                )
+                ->keyboard(function ($keyboard) {
+                    $keyboard->button("Отмена")->action("start");
+                    $keyboard->chunk(2);
+                    return $keyboard;
+                })
+                ->send();
+            $this->logOutgoing("❌ *Город не найден.*", [
+                "handler_action" => "set_default_city_not_found",
+                "is_error" => true,
+            ]);
+        }
+    }
+
+    private function resolveChatModel(): ?TelegraphChat
+    {
+        $telegramChatId = isset($this->chat->chat_id)
+            ? (string) $this->chat->chat_id
+            : null;
+
+        if ($telegramChatId === null) {
+            return null;
+        }
+
+        return TelegraphChat::query()->firstOrCreate(
+            [
+                "telegraph_bot_id" => (int) $this->bot->id,
+                "chat_id" => $telegramChatId,
+            ],
+            [
+                "name" => $this->chat->name ?? null,
+            ],
+        );
+    }
+
+    private function getSavedCity(): ?string
+    {
+        $chat = $this->resolveChatModel();
+        if ($chat === null) {
+            return null;
+        }
+
+        $savedCity = $chat->weather_city;
+        return is_string($savedCity) && $savedCity !== "" ? $savedCity : null;
+    }
+
+    private function saveCity(string $city): void
+    {
+        $chat = $this->resolveChatModel();
+        if ($chat === null) {
+            return;
+        }
+
+        $chat->weather_city = $city;
+        $chat->save();
+    }
+
+    private function awaitingSavedCityCacheKey(): ?string
+    {
+        $telegramChatId = isset($this->chat->chat_id)
+            ? (string) $this->chat->chat_id
+            : null;
+        if ($telegramChatId === null) {
+            return null;
+        }
+
+        return "weather_bot_saved_city_pending_{$this->bot->id}_{$telegramChatId}";
+    }
+
+    private function setAwaitingSavedCity(): void
+    {
+        $key = $this->awaitingSavedCityCacheKey();
+        if ($key === null) {
+            return;
+        }
+
+        Cache::put($key, true, now()->addMinutes(10));
+    }
+
+    private function clearAwaitingSavedCity(): void
+    {
+        $key = $this->awaitingSavedCityCacheKey();
+        if ($key === null) {
+            return;
+        }
+
+        Cache::forget($key);
+    }
+
+    private function isAwaitingSavedCity(): bool
+    {
+        $key = $this->awaitingSavedCityCacheKey();
+        if ($key === null) {
+            return false;
+        }
+
+        return (bool) Cache::get($key, false);
     }
 
     private function sendWeatherResponse(
