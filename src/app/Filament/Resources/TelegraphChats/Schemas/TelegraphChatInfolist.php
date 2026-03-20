@@ -12,6 +12,7 @@ class TelegraphChatInfolist
         return $schema->components([
             TextEntry::make("chat_id")->label("Chat ID"),
             TextEntry::make("name")->label("Название")->placeholder("-"),
+            TextEntry::make("weather_city")->label("Город")->placeholder("-"),
             TextEntry::make("bot.name")->label("Бот")->placeholder("-"),
             TextEntry::make("inbound_events_count")
                 ->label("Входящих событий")

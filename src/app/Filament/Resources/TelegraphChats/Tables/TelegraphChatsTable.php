@@ -21,6 +21,10 @@ class TelegraphChatsTable
             ->columns([
                 TextColumn::make("chat_id")->label("Chat ID")->searchable(),
                 TextColumn::make("name")->label("Название")->searchable(),
+                TextColumn::make("weather_city")
+                    ->label("Город")
+                    ->searchable()
+                    ->placeholder("-"),
                 TextColumn::make("bot.name")
                     ->label("Бот")
                     ->searchable()
