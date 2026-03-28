@@ -22,7 +22,8 @@ class WeatherMessageFormatter
             $forecastSections = $payload["forecast_sections"] ?? [];
             if (is_array($forecastSections) && $forecastSections !== []) {
                 $text .=
-                    "\n\n" . $this->formatForecastSections($forecastSections);
+                    "\n\n" .
+                    $this->formatForecastSections($forecastSections, $payload);
             }
 
             $text .= sprintf(
@@ -77,8 +78,10 @@ class WeatherMessageFormatter
         );
     }
 
-    private function formatForecastSections(array $sections): string
-    {
+    private function formatForecastSections(
+        array $sections,
+        array $payload,
+    ): string {
         $formattedSections = [];
 
         foreach ($sections as $section) {
@@ -94,7 +97,10 @@ class WeatherMessageFormatter
                 $formattedRows[] = sprintf(
                     "%s - <b>%s</b>",
                     $this->escapeHtml((string) ($row["time"] ?? "")),
-                    $this->formatTemperature($row["temp"] ?? 0),
+                    $this->formatTemperature(
+                        $row["temp"] ?? 0,
+                        (string) ($payload["temperature_unit"] ?? "C"),
+                    ),
                 );
             }
 
