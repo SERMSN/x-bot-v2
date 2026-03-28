@@ -132,14 +132,9 @@ class WeatherBotHandler extends WebhookHandler
                     "Единицы: *{$this->weatherUnitsLabel(
                         $preferences["units"],
                     )}*.\n" .
-                    "Локация -> сохранить город: *{$this->autoSaveLocationCityLabel()}*.\n\n" .
-                    "Уведомления: *{$this->weatherNotificationsLabel()}*.\n" .
-                    "Время уведомлений: *{$preferences["notification_time"]}*.\n" .
-                    "Часовой пояс: *{$preferences["notification_timezone"]}*.\n" .
-                    "Режим уведомления: *{$this->notificationModeLabel(
-                        $preferences["notification_mode"],
-                    )}*.\n\n" .
-                    "Подсказка: кнопки ниже сразу переключают режимы.",
+                    "Локация -> сохранить город: *{$this->autoSaveLocationCityLabel()}*.\n" .
+                    "Уведомления: *{$this->weatherNotificationsLabel()}*.\n\n" .
+                    "Подсказка: уведомления вынесены в отдельное подменю.",
             )
             ->keyboard($this->settingsKeyboard($preferences))
             ->send();
@@ -276,6 +271,9 @@ class WeatherBotHandler extends WebhookHandler
             case "toggle_auto_save_location_city":
                 $this->toggle_auto_save_location_city();
                 break;
+            case "weather_notifications_menu":
+                $this->weather_notifications_menu();
+                break;
             case "toggle_weather_notifications":
                 $this->toggle_weather_notifications();
                 break;
@@ -291,6 +289,32 @@ class WeatherBotHandler extends WebhookHandler
                     "handler_action" => "unknown_callback",
                 ]);
         }
+    }
+
+    public function weather_notifications_menu(): void
+    {
+        $preferences = $this->getWeatherPreferences();
+
+        $message = "🔔 *Уведомления*\n\n";
+        $message .= "Действие: управление уведомлениями.\n";
+        $message .=
+            "Статус: *{$this->weatherNotificationsLabel()}*.\n" .
+            "Время: *{$preferences["notification_time"]}*.\n" .
+            "Часовой пояс: *{$preferences["notification_timezone"]}*.\n" .
+            "Режим: *{$this->notificationModeLabel(
+                $preferences["notification_mode"],
+            )}*.\n\n";
+        $message .=
+            "Подсказка: сначала сохраните город, затем включайте уведомления.";
+
+        $this->chat
+            ->markdown($message)
+            ->keyboard($this->notificationSettingsKeyboard($preferences))
+            ->send();
+
+        $this->logOutgoing($message, [
+            "handler_action" => "weather_notifications_menu",
+        ]);
     }
 
     private function sendCityPrompt(): void
@@ -1175,16 +1199,29 @@ class WeatherBotHandler extends WebhookHandler
                 )->action("toggle_auto_save_location_city"),
                 Button::make(
                     "🔔 Уведомления: " . $this->weatherNotificationsLabel(),
+                )->action("weather_notifications_menu"),
+                Button::make("🏠 На главную")->action("start"),
+            ])
+            ->chunk(2);
+    }
+
+    private function notificationSettingsKeyboard(array $preferences): Keyboard
+    {
+        return Keyboard::make()
+            ->buttons([
+                Button::make(
+                    "🔔 Статус: " . $this->weatherNotificationsLabel(),
                 )->action("toggle_weather_notifications"),
                 Button::make(
                     "🕒 Время: " . $preferences["notification_time"],
                 )->action("set_weather_notification_time"),
                 Button::make(
-                    "🔔 Режим: " .
+                    "📝 Режим: " .
                         $this->notificationModeLabel(
                             $preferences["notification_mode"],
                         ),
                 )->action("toggle_weather_notification_mode"),
+                Button::make("⚙ Назад")->action("setting"),
                 Button::make("🏠 На главную")->action("start"),
             ])
             ->chunk(2);
