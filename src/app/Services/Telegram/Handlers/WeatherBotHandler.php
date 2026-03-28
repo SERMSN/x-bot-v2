@@ -164,7 +164,7 @@ class WeatherBotHandler extends WebhookHandler
                 $keyboard
                     ->button(
                         $savedCity !== null
-                            ? "🏙️ В городе {$savedCity}"
+                            ? "⭐ В городе {$savedCity}"
                             : "⭐ Сохраненный город",
                     )
                     ->action("get_weather_saved_city");
@@ -430,9 +430,13 @@ class WeatherBotHandler extends WebhookHandler
         try {
             /** @var WeatherService $weatherService */
             $weatherService = app(WeatherService::class);
-            $weather = $weatherService->getByCityName(
+            $validation = $weatherService->validateCity(
                 (int) $this->bot->id,
                 $savedCity,
+            );
+            $weather = $weatherService->getByCityName(
+                (int) $this->bot->id,
+                $validation["normalized"],
             );
 
             $responseText = $weather["text"] ?? "Погода недоступна.";
@@ -498,7 +502,7 @@ class WeatherBotHandler extends WebhookHandler
                 $input,
             );
 
-            $savedCity = $validation["normalized"];
+            $savedCity = $validation["display_name"] ?? $validation["name"];
             $this->saveCity($savedCity);
 
             $message = "✅ *Город сохранен*\n\n";

@@ -174,9 +174,12 @@ class WeatherService
         foreach ($data as $cityData) {
             if (strtolower($cityData["name"]) === strtolower($city)) {
                 return [
-                    "name" => $cityData["name"],
+                    "name" => $this->resolveLocalizedCityName($cityData),
                     "country" => $cityData["country"],
                     "normalized" => "{$cityData["name"]}, {$cityData["country"]}",
+                    "display_name" => $this->resolveLocalizedCityName(
+                        $cityData,
+                    ),
                 ];
             }
         }
@@ -184,9 +187,10 @@ class WeatherService
         // Если точного совпадения нет, берем первый результат
         $firstResult = $data[0];
         return [
-            "name" => $firstResult["name"],
+            "name" => $this->resolveLocalizedCityName($firstResult),
             "country" => $firstResult["country"],
             "normalized" => "{$firstResult["name"]}, {$firstResult["country"]}",
+            "display_name" => $this->resolveLocalizedCityName($firstResult),
         ];
     }
 
@@ -200,14 +204,14 @@ class WeatherService
 
         $text = sprintf(
             "🌦️ <b>Погода в %s</b>\n\n" .
-                "🌡 Температура: <b>%.1f°C</b>\n" .
+                "🌡 Температура: <b>%s</b>\n" .
                 "☁️ Состояние: <b>%s</b>\n" .
                 "💧 Влажность: <b>%d%%</b>\n" .
                 "🌬 Ветер: <b>%.1f м/с</b>\n\n" .
                 "🕒 <b>Местное время</b>\n" .
                 "%s",
             $cityName,
-            $data["main"]["temp"],
+            $this->formatTemperature($data["main"]["temp"]),
             $data["weather"][0]["description"],
             $data["main"]["humidity"],
             $data["wind"]["speed"],
@@ -356,9 +360,9 @@ class WeatherService
             }
 
             $row = sprintf(
-                "%s - <b>%.1f°C</b>",
+                "%s - <b>%s</b>",
                 $itemLocal->format("H:i"),
-                $item["main"]["temp"],
+                $this->formatTemperature($item["main"]["temp"]),
             );
 
             if ($itemLocal <= $endOfDayLocal) {
@@ -425,6 +429,30 @@ class WeatherService
         $nowUtc = (int) ($currentData["dt"] ?? time());
 
         return new \DateTimeImmutable("@{$nowUtc}")->setTimezone($timezone);
+    }
+
+    private function resolveLocalizedCityName(array $cityData): string
+    {
+        $localizedName =
+            $cityData["local_names"]["ru"] ?? ($cityData["name"] ?? "");
+
+        return is_string($localizedName) ? trim($localizedName) : "";
+    }
+
+    private function formatTemperature(float|int|string $temperature): string
+    {
+        $value = (float) $temperature;
+        $formatted = number_format($value, 1, ".", "");
+
+        if ($value > 0) {
+            return '<span style="color:#d97706;">+' . $formatted . "°C</span>";
+        }
+
+        if ($value < 0) {
+            return '<span style="color:#2563eb;">' . $formatted . "°C</span>";
+        }
+
+        return '<span style="color:#6b7280;">' . $formatted . "°C</span>";
     }
 
     private function timezoneFromOffset(int $offsetSeconds): \DateTimeZone
