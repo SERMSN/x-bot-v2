@@ -13,6 +13,7 @@ class BotSetting extends Model
 
     public const KEY_OPENWEATHER_API_KEY = "OPENWEATHER_API_KEY";
     public const KEY_OPENWEATHER_API_URL = "OPENWEATHER_API_URL";
+    public const KEY_WEATHER_NOTIFICATION_RUN_INTERVAL_MINUTES = "WEATHER_NOTIFICATION_RUN_INTERVAL_MINUTES";
     public const KEY_VIN_API_DECODE_URL = "VIN_API_DECODE_URL";
 
     protected $table = "bot_settings";
@@ -26,6 +27,7 @@ class BotSetting extends Model
             if ($botId) {
                 Cache::forget("bot_settings_openweather_{$botId}");
                 Cache::forget("vin_settings_{$botId}");
+                Cache::forget("weather_notification_settings_{$botId}");
             }
         };
 

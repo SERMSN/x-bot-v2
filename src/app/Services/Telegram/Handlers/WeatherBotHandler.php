@@ -19,6 +19,8 @@ class WeatherBotHandler extends WebhookHandler
     private const WEATHER_MODE_DETAILED = "detailed";
     private const WEATHER_UNITS_METRIC = "metric";
     private const WEATHER_UNITS_IMPERIAL = "imperial";
+    private const NOTIFICATION_MODE_BRIEF = "brief";
+    private const NOTIFICATION_MODE_DETAILED = "detailed";
     private const LAST_QUERY_TYPE_COORDINATES = "coordinates";
 
     protected function handleMessage(): void
@@ -131,6 +133,12 @@ class WeatherBotHandler extends WebhookHandler
                         $preferences["units"],
                     )}*.\n" .
                     "Локация -> сохранить город: *{$this->autoSaveLocationCityLabel()}*.\n\n" .
+                    "Уведомления: *{$this->weatherNotificationsLabel()}*.\n" .
+                    "Время уведомлений: *{$preferences["notification_time"]}*.\n" .
+                    "Часовой пояс: *{$preferences["notification_timezone"]}*.\n" .
+                    "Режим уведомления: *{$this->notificationModeLabel(
+                        $preferences["notification_mode"],
+                    )}*.\n\n" .
                     "Подсказка: кнопки ниже сразу переключают режимы.",
             )
             ->keyboard($this->settingsKeyboard($preferences))
@@ -202,6 +210,11 @@ class WeatherBotHandler extends WebhookHandler
             return;
         }
 
+        if ($this->isAwaitingNotificationTime()) {
+            $this->handleNotificationTimeInput($text->toString());
+            return;
+        }
+
         $this->handleCityWeather($text->toString());
     }
 
@@ -262,6 +275,15 @@ class WeatherBotHandler extends WebhookHandler
                 break;
             case "toggle_auto_save_location_city":
                 $this->toggle_auto_save_location_city();
+                break;
+            case "toggle_weather_notifications":
+                $this->toggle_weather_notifications();
+                break;
+            case "set_weather_notification_time":
+                $this->set_weather_notification_time();
+                break;
+            case "toggle_weather_notification_mode":
+                $this->toggle_weather_notification_mode();
                 break;
             default:
                 $this->chat->html("Действие: {$callbackData}")->send();
@@ -454,6 +476,73 @@ class WeatherBotHandler extends WebhookHandler
         $this->setting();
     }
 
+    public function toggle_weather_notifications(): void
+    {
+        $chat = $this->resolveChatModel();
+        if ($chat === null) {
+            return;
+        }
+
+        if ($this->getSavedCity() === null) {
+            $this->sendWeatherFailure(
+                "❌ Сначала сохраните город, затем включайте уведомления.",
+                "toggle_weather_notifications",
+            );
+            return;
+        }
+
+        $chat->weather_notifications_enabled = !$this->isWeatherNotificationsEnabled();
+
+        if ($chat->weather_notification_timezone === null) {
+            $chat->weather_notification_timezone = $this->defaultNotificationTimezone();
+        }
+
+        if ($chat->weather_notification_time === null) {
+            $chat->weather_notification_time = "08:00";
+        }
+
+        $chat->save();
+        $this->setting();
+    }
+
+    public function set_weather_notification_time(): void
+    {
+        $this->setAwaitingNotificationTime();
+
+        $message = "🕒 *Время уведомлений*\n\n";
+        $message .= "Действие: введите время в формате *HH:MM*.\n";
+        $message .= "Подсказка: например *08:30*.\n";
+        $message .= "Для отмены отправьте: *Отмена*.";
+
+        $this->chat
+            ->markdown($message)
+            ->keyboard($this->cancelKeyboard())
+            ->send();
+
+        $this->logOutgoing($message, [
+            "handler_action" => "set_weather_notification_time",
+        ]);
+    }
+
+    public function toggle_weather_notification_mode(): void
+    {
+        $chat = $this->resolveChatModel();
+        if ($chat === null) {
+            return;
+        }
+
+        $currentMode = $this->normalizeNotificationMode(
+            $chat->weather_notification_mode,
+        );
+        $chat->weather_notification_mode =
+            $currentMode === self::NOTIFICATION_MODE_DETAILED
+                ? self::NOTIFICATION_MODE_BRIEF
+                : self::NOTIFICATION_MODE_DETAILED;
+        $chat->save();
+
+        $this->setting();
+    }
+
     private function isCancel(string $text): bool
     {
         $normalized = mb_strtolower(trim($text));
@@ -484,6 +573,43 @@ class WeatherBotHandler extends WebhookHandler
                 "set_default_city_not_found",
             );
         }
+    }
+
+    private function handleNotificationTimeInput(string $input): void
+    {
+        $this->clearAwaitingNotificationTime();
+        $input = trim($input);
+
+        if (!preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $input)) {
+            $this->sendRetryableCityError(
+                "❌ *Некорректное время.*\n\nДействие: введите время в формате *HH:MM*.\nПодсказка: например *08:30*.",
+                "weather_notification_time_invalid",
+            );
+            return;
+        }
+
+        $chat = $this->resolveChatModel();
+        if ($chat === null) {
+            return;
+        }
+
+        $chat->weather_notification_time = $input;
+        if ($chat->weather_notification_timezone === null) {
+            $chat->weather_notification_timezone = $this->defaultNotificationTimezone();
+        }
+        $chat->save();
+
+        $message = "✅ *Время уведомлений сохранено*\n\n";
+        $message .= "Новое время: *{$input}*.";
+
+        $this->chat
+            ->markdown($message)
+            ->keyboard($this->settingsKeyboard($this->getWeatherPreferences()))
+            ->send();
+
+        $this->logOutgoing($message, [
+            "handler_action" => "weather_notification_time_saved",
+        ]);
     }
 
     private function handleCityWeather(string $input): void
@@ -729,6 +855,21 @@ class WeatherBotHandler extends WebhookHandler
                 $chat?->weather_response_mode,
             ),
             "units" => $this->normalizeWeatherUnits($chat?->weather_units),
+            "notifications_enabled" =>
+                $chat === null
+                    ? false
+                    : (bool) ($chat->weather_notifications_enabled ?? false),
+            "notification_time" => is_string($chat?->weather_notification_time)
+                ? $chat->weather_notification_time
+                : "08:00",
+            "notification_timezone" => is_string(
+                $chat?->weather_notification_timezone,
+            )
+                ? $chat->weather_notification_timezone
+                : $this->defaultNotificationTimezone(),
+            "notification_mode" => $this->normalizeNotificationMode(
+                $chat?->weather_notification_mode,
+            ),
         ];
     }
 
@@ -764,6 +905,24 @@ class WeatherBotHandler extends WebhookHandler
         return $units === self::WEATHER_UNITS_IMPERIAL ? "°F, mph" : "°C, м/с";
     }
 
+    private function normalizeNotificationMode(mixed $mode): string
+    {
+        return in_array(
+            $mode,
+            [self::NOTIFICATION_MODE_BRIEF, self::NOTIFICATION_MODE_DETAILED],
+            true,
+        )
+            ? (string) $mode
+            : self::NOTIFICATION_MODE_BRIEF;
+    }
+
+    private function notificationModeLabel(string $mode): string
+    {
+        return $mode === self::NOTIFICATION_MODE_DETAILED
+            ? "подробно"
+            : "кратко";
+    }
+
     private function shortWeatherUnitsLabel(string $units): string
     {
         return $units === self::WEATHER_UNITS_IMPERIAL ? "°F" : "°C";
@@ -781,6 +940,25 @@ class WeatherBotHandler extends WebhookHandler
     private function autoSaveLocationCityLabel(): string
     {
         return $this->isAutoSaveLocationCityEnabled() ? "вкл" : "выкл";
+    }
+
+    private function isWeatherNotificationsEnabled(): bool
+    {
+        $chat = $this->resolveChatModel();
+
+        return $chat === null
+            ? false
+            : (bool) ($chat->weather_notifications_enabled ?? false);
+    }
+
+    private function weatherNotificationsLabel(): string
+    {
+        return $this->isWeatherNotificationsEnabled() ? "вкл" : "выкл";
+    }
+
+    private function defaultNotificationTimezone(): string
+    {
+        return (string) config("app.timezone", "UTC");
     }
 
     private function rememberLastWeatherQuery(
@@ -836,6 +1014,18 @@ class WeatherBotHandler extends WebhookHandler
         return "weather_bot_saved_city_pending_{$this->bot->id}_{$telegramChatId}";
     }
 
+    private function awaitingNotificationTimeCacheKey(): ?string
+    {
+        $telegramChatId = isset($this->chat->chat_id)
+            ? (string) $this->chat->chat_id
+            : null;
+        if ($telegramChatId === null) {
+            return null;
+        }
+
+        return "weather_bot_notification_time_pending_{$this->bot->id}_{$telegramChatId}";
+    }
+
     private function setAwaitingSavedCity(): void
     {
         $key = $this->awaitingSavedCityCacheKey();
@@ -854,11 +1044,42 @@ class WeatherBotHandler extends WebhookHandler
         }
 
         Cache::forget($key);
+        $this->clearAwaitingNotificationTime();
     }
 
     private function isAwaitingSavedCity(): bool
     {
         $key = $this->awaitingSavedCityCacheKey();
+        if ($key === null) {
+            return false;
+        }
+
+        return (bool) Cache::get($key, false);
+    }
+
+    private function setAwaitingNotificationTime(): void
+    {
+        $key = $this->awaitingNotificationTimeCacheKey();
+        if ($key === null) {
+            return;
+        }
+
+        Cache::put($key, true, now()->addMinutes(10));
+    }
+
+    private function clearAwaitingNotificationTime(): void
+    {
+        $key = $this->awaitingNotificationTimeCacheKey();
+        if ($key === null) {
+            return;
+        }
+
+        Cache::forget($key);
+    }
+
+    private function isAwaitingNotificationTime(): bool
+    {
+        $key = $this->awaitingNotificationTimeCacheKey();
         if ($key === null) {
             return false;
         }
@@ -952,6 +1173,18 @@ class WeatherBotHandler extends WebhookHandler
                 Button::make(
                     "📍 Локация: " . $this->autoSaveLocationCityLabel(),
                 )->action("toggle_auto_save_location_city"),
+                Button::make(
+                    "🔔 Уведомления: " . $this->weatherNotificationsLabel(),
+                )->action("toggle_weather_notifications"),
+                Button::make(
+                    "🕒 Время: " . $preferences["notification_time"],
+                )->action("set_weather_notification_time"),
+                Button::make(
+                    "🔔 Режим: " .
+                        $this->notificationModeLabel(
+                            $preferences["notification_mode"],
+                        ),
+                )->action("toggle_weather_notification_mode"),
                 Button::make("🏠 На главную")->action("start"),
             ])
             ->chunk(2);
