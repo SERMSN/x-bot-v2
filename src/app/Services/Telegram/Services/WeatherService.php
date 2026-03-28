@@ -210,6 +210,15 @@ class WeatherService
 
         return [
             "text" => $this->messageFormatter->format($payload),
+            "city" => [
+                "name" => (string) ($data["name"] ?? ""),
+                "lat" => isset($data["coord"]["lat"])
+                    ? (float) $data["coord"]["lat"]
+                    : null,
+                "lon" => isset($data["coord"]["lon"])
+                    ? (float) $data["coord"]["lon"]
+                    : null,
+            ],
         ];
     }
 
