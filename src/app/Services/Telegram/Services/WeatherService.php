@@ -172,7 +172,7 @@ class WeatherService
         // Ищем точное совпадение (не учитываем регистр)
         $data = $response->json();
         foreach ($data as $cityData) {
-            if (strtolower($cityData["name"]) === strtolower($city)) {
+            if ($this->isExactCityMatch($cityData, $city)) {
                 return [
                     "name" => $this->resolveLocalizedCityName($cityData),
                     "country" => $cityData["country"],
@@ -180,6 +180,8 @@ class WeatherService
                     "display_name" => $this->resolveLocalizedCityName(
                         $cityData,
                     ),
+                    "lat" => (float) ($cityData["lat"] ?? 0),
+                    "lon" => (float) ($cityData["lon"] ?? 0),
                 ];
             }
         }
@@ -191,6 +193,8 @@ class WeatherService
             "country" => $firstResult["country"],
             "normalized" => "{$firstResult["name"]}, {$firstResult["country"]}",
             "display_name" => $this->resolveLocalizedCityName($firstResult),
+            "lat" => (float) ($firstResult["lat"] ?? 0),
+            "lon" => (float) ($firstResult["lon"] ?? 0),
         ];
     }
 
@@ -441,20 +445,45 @@ class WeatherService
         return is_string($localizedName) ? trim($localizedName) : "";
     }
 
+    private function isExactCityMatch(array $cityData, string $city): bool
+    {
+        $needle = mb_strtolower(trim($city));
+        if ($needle === "") {
+            return false;
+        }
+
+        $variants = array_filter([
+            $cityData["name"] ?? null,
+            $cityData["local_names"]["ru"] ?? null,
+        ]);
+
+        foreach ($variants as $variant) {
+            if (!is_string($variant)) {
+                continue;
+            }
+
+            if (mb_strtolower(trim($variant)) === $needle) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function formatTemperature(float|int|string $temperature): string
     {
         $value = (float) $temperature;
         $formatted = number_format($value, 1, ".", "");
 
         if ($value > 0) {
-            return "🟠 +" . $formatted . "°C";
+            return "➕" . $formatted . "°C";
         }
 
         if ($value < 0) {
-            return "🔵 " . $formatted . "°C";
+            return "➖" . number_format(abs($value), 1, ".", "") . "°C";
         }
 
-        return "⚪ " . $formatted . "°C";
+        return $formatted . "°C";
     }
 
     private function timezoneFromOffset(int $offsetSeconds): \DateTimeZone

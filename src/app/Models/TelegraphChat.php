@@ -16,6 +16,8 @@ class TelegraphChat extends BaseTelegraphChat
         "name",
         "telegraph_bot_id",
         "weather_city",
+        "weather_city_lat",
+        "weather_city_lon",
     ];
 
     public function bot(): BelongsTo

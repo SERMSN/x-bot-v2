@@ -91,7 +91,7 @@ class WeatherBotHandler extends WebhookHandler
 
     public function setting(): void
     {
-        $savedCity = $this->getSavedCity();
+        $savedCity = $this->getSavedCityName();
         $savedCityLine =
             $savedCity !== null
                 ? "Сохраненный город: *{$savedCity}*.\n"
@@ -145,7 +145,7 @@ class WeatherBotHandler extends WebhookHandler
      */
     public function handleGetWeather(): void
     {
-        $savedCity = $this->getSavedCity();
+        $savedCity = $this->getSavedCityName();
 
         $message = "🌤️ *Как получить погоду?*\n\n";
         $message .= "Действие: выберите способ.\n";
@@ -207,9 +207,7 @@ class WeatherBotHandler extends WebhookHandler
                     $lon,
                 );
 
-                $text =
-                    "📍 Локация получена.\n\n" .
-                    ($weather["text"] ?? "Погода недоступна.");
+                $text = $weather["text"] ?? "Погода недоступна.";
                 $this->sendWeatherResponse($text, null, true);
             } catch (\Throwable $e) {
                 Log::error("WeatherService error", ["exception" => $e]);
@@ -289,23 +287,6 @@ class WeatherBotHandler extends WebhookHandler
             ]);
             return;
         }
-
-        // Обработка обычного текста
-        $message = "🌤️ *Погодный бот*\n\n";
-        $message .= "Действие: получить погоду.\n";
-        $message .= "Подсказка: можно выбрать по городу или локации.";
-
-        $this->chat
-            ->markdown($message)
-            ->keyboard(function ($keyboard) {
-                $keyboard->button("🌤️ Получить погоду")->action("get_weather");
-                $keyboard->button("❓ Помощь")->action("help");
-                $keyboard->chunk(2);
-                return $keyboard;
-            })
-            ->send();
-
-        $this->logOutgoing($message, ["handler_action" => "fallback_menu"]);
     }
 
     /**
@@ -408,7 +389,8 @@ class WeatherBotHandler extends WebhookHandler
 
         if ($savedCity === null) {
             $message = "⭐ *Сохраненный город не задан*\n\n";
-            $message .= "Действие: перейдите в настройки и сохраните город.";
+            $message .=
+                "Действие: перейдите в настройки и сохраните город заново.";
 
             $this->chat
                 ->markdown($message)
@@ -430,13 +412,10 @@ class WeatherBotHandler extends WebhookHandler
         try {
             /** @var WeatherService $weatherService */
             $weatherService = app(WeatherService::class);
-            $validation = $weatherService->validateCity(
+            $weather = $weatherService->getByCoordinates(
                 (int) $this->bot->id,
-                $savedCity,
-            );
-            $weather = $weatherService->getByCityName(
-                (int) $this->bot->id,
-                $validation["normalized"],
+                (float) $savedCity["lat"],
+                (float) $savedCity["lon"],
             );
 
             $responseText = $weather["text"] ?? "Погода недоступна.";
@@ -503,7 +482,11 @@ class WeatherBotHandler extends WebhookHandler
             );
 
             $savedCity = $validation["display_name"] ?? $validation["name"];
-            $this->saveCity($savedCity);
+            $this->saveCity(
+                $savedCity,
+                (float) ($validation["lat"] ?? 0),
+                (float) ($validation["lon"] ?? 0),
+            );
 
             $message = "✅ *Город сохранен*\n\n";
             $message .= "Сохраненный город: *{$savedCity}*.\n";
@@ -563,7 +546,7 @@ class WeatherBotHandler extends WebhookHandler
         );
     }
 
-    private function getSavedCity(): ?string
+    private function getSavedCity(): ?array
     {
         $chat = $this->resolveChatModel();
         if ($chat === null) {
@@ -571,10 +554,33 @@ class WeatherBotHandler extends WebhookHandler
         }
 
         $savedCity = $chat->weather_city;
-        return is_string($savedCity) && $savedCity !== "" ? $savedCity : null;
+        if (
+            !is_string($savedCity) ||
+            $savedCity === "" ||
+            !is_numeric($chat->weather_city_lat) ||
+            !is_numeric($chat->weather_city_lon)
+        ) {
+            return null;
+        }
+
+        return [
+            "name" => $savedCity,
+            "lat" => (float) $chat->weather_city_lat,
+            "lon" => (float) $chat->weather_city_lon,
+        ];
     }
 
-    private function saveCity(string $city): void
+    private function getSavedCityName(): ?string
+    {
+        $savedCity = $this->getSavedCity();
+        if ($savedCity === null) {
+            return null;
+        }
+
+        return $savedCity["name"];
+    }
+
+    private function saveCity(string $city, float $lat, float $lon): void
     {
         $chat = $this->resolveChatModel();
         if ($chat === null) {
@@ -582,6 +588,8 @@ class WeatherBotHandler extends WebhookHandler
         }
 
         $chat->weather_city = $city;
+        $chat->weather_city_lat = $lat;
+        $chat->weather_city_lon = $lon;
         $chat->save();
     }
 
