@@ -39,13 +39,12 @@ class WeatherMessageFormatter
     {
         return sprintf(
             "🌦️ <b>Погода в %s</b>\n\n" .
-                "🌡 Температура:\n<pre>%s</pre>\n" .
+                "🌡 Температура: <b>%s</b>\n" .
                 "☁️ Состояние: <b>%s</b>\n" .
                 "💧 Влажность: <b>%d%%</b>\n" .
                 "🌬 Ветер: <b>%s</b>",
             $this->escapeHtml((string) $payload["city_name"]),
-            $this->formatMetricLine(
-                "Сейчас",
+            $this->formatTemperature(
                 $payload["current"]["temp"] ?? 0,
                 (string) ($payload["temperature_unit"] ?? "C"),
             ),
@@ -63,13 +62,9 @@ class WeatherMessageFormatter
     private function formatBrief(array $payload): string
     {
         return sprintf(
-            "🌦️ <b>%s</b>\n" .
-                "🌡 Температура:\n<pre>%s</pre>\n" .
-                "☁️ %s\n" .
-                "🌬 %s",
+            "🌦️ <b>%s</b>\n🌡 <b>%s</b>, %s\n🌬 %s",
             $this->escapeHtml((string) $payload["city_name"]),
-            $this->formatMetricLine(
-                "Сейчас",
+            $this->formatTemperature(
                 $payload["current"]["temp"] ?? 0,
                 (string) ($payload["temperature_unit"] ?? "C"),
             ),
@@ -125,7 +120,7 @@ class WeatherMessageFormatter
 
         foreach ($dailyForecast as $day) {
             $rows[] = sprintf(
-                "%s  мин %s  макс %s  %s",
+                "%s  %s / %s  %s",
                 $this->padLabel((string) ($day["label"] ?? ""), 10),
                 $this->padLabel(
                     $this->formatTemperature(
