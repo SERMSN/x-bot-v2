@@ -207,21 +207,23 @@ class WeatherService
                 "🌡 Температура: <b>%s</b>\n" .
                 "☁️ Состояние: <b>%s</b>\n" .
                 "💧 Влажность: <b>%d%%</b>\n" .
-                "🌬 Ветер: <b>%.1f м/с</b>\n\n" .
-                "🕒 <b>Местное время</b>\n" .
-                "%s",
+                "🌬 Ветер: <b>%.1f м/с</b>",
             $cityName,
             $this->formatTemperature($data["main"]["temp"]),
             $data["weather"][0]["description"],
             $data["main"]["humidity"],
             $data["wind"]["speed"],
-            $localNow->format("d.m.Y H:i"),
         );
 
         $forecastSections = $this->formatHourlyForecast($forecastData, $data);
         if ($forecastSections !== []) {
             $text .= "\n\n" . implode("\n\n", $forecastSections);
         }
+
+        $text .= sprintf(
+            "\n\n🕒 <b>Местное время</b>\n%s",
+            $localNow->format("d.m.Y H:i"),
+        );
 
         return [
             "text" => $text,
@@ -445,14 +447,14 @@ class WeatherService
         $formatted = number_format($value, 1, ".", "");
 
         if ($value > 0) {
-            return '<span style="color:#d97706;">+' . $formatted . "°C</span>";
+            return "🟠 +" . $formatted . "°C";
         }
 
         if ($value < 0) {
-            return '<span style="color:#2563eb;">' . $formatted . "°C</span>";
+            return "🔵 " . $formatted . "°C";
         }
 
-        return '<span style="color:#6b7280;">' . $formatted . "°C</span>";
+        return "⚪ " . $formatted . "°C";
     }
 
     private function timezoneFromOffset(int $offsetSeconds): \DateTimeZone
