@@ -39,12 +39,13 @@ class WeatherMessageFormatter
     {
         return sprintf(
             "🌦️ <b>Погода в %s</b>\n\n" .
-                "🌡 Температура: <b>%s</b>\n" .
+                "🌡 Температура:\n<pre>%s</pre>\n" .
                 "☁️ Состояние: <b>%s</b>\n" .
                 "💧 Влажность: <b>%d%%</b>\n" .
                 "🌬 Ветер: <b>%s</b>",
             $this->escapeHtml((string) $payload["city_name"]),
-            $this->formatTemperature(
+            $this->formatMetricLine(
+                "Сейчас",
                 $payload["current"]["temp"] ?? 0,
                 (string) ($payload["temperature_unit"] ?? "C"),
             ),
@@ -62,9 +63,13 @@ class WeatherMessageFormatter
     private function formatBrief(array $payload): string
     {
         return sprintf(
-            "🌦️ <b>%s</b>\n" . "🌡 <b>%s</b>, %s\n" . "🌬 %s",
+            "🌦️ <b>%s</b>\n" .
+                "🌡 Температура:\n<pre>%s</pre>\n" .
+                "☁️ %s\n" .
+                "🌬 %s",
             $this->escapeHtml((string) $payload["city_name"]),
-            $this->formatTemperature(
+            $this->formatMetricLine(
+                "Сейчас",
                 $payload["current"]["temp"] ?? 0,
                 (string) ($payload["temperature_unit"] ?? "C"),
             ),
@@ -94,13 +99,10 @@ class WeatherMessageFormatter
 
             $formattedRows = [];
             foreach ($rows as $row) {
-                $formattedRows[] = sprintf(
-                    "%s - <b>%s</b>",
-                    $this->escapeHtml((string) ($row["time"] ?? "")),
-                    $this->formatTemperature(
-                        $row["temp"] ?? 0,
-                        (string) ($payload["temperature_unit"] ?? "C"),
-                    ),
+                $formattedRows[] = $this->formatMetricLine(
+                    (string) ($row["time"] ?? ""),
+                    $row["temp"] ?? 0,
+                    (string) ($payload["temperature_unit"] ?? "C"),
                 );
             }
 
@@ -109,7 +111,7 @@ class WeatherMessageFormatter
             }
 
             $formattedSections[] =
-                $title . "\n" . implode("\n", $formattedRows);
+                $title . "\n<pre>" . implode("\n", $formattedRows) . "</pre>";
         }
 
         return implode("\n\n", $formattedSections);
@@ -123,21 +125,29 @@ class WeatherMessageFormatter
 
         foreach ($dailyForecast as $day) {
             $rows[] = sprintf(
-                "%s: <b>%s / %s</b>, %s",
-                $this->escapeHtml((string) ($day["label"] ?? "")),
-                $this->formatTemperature(
-                    $day["temp_min"] ?? 0,
-                    (string) ($payload["temperature_unit"] ?? "C"),
+                "%s  мин %s  макс %s  %s",
+                $this->padLabel((string) ($day["label"] ?? ""), 10),
+                $this->padLabel(
+                    $this->formatTemperature(
+                        $day["temp_min"] ?? 0,
+                        (string) ($payload["temperature_unit"] ?? "C"),
+                    ),
+                    7,
                 ),
-                $this->formatTemperature(
-                    $day["temp_max"] ?? 0,
-                    (string) ($payload["temperature_unit"] ?? "C"),
+                $this->padLabel(
+                    $this->formatTemperature(
+                        $day["temp_max"] ?? 0,
+                        (string) ($payload["temperature_unit"] ?? "C"),
+                    ),
+                    7,
                 ),
-                $this->escapeHtml((string) ($day["description"] ?? "")),
+                (string) ($day["description"] ?? ""),
             );
         }
 
-        return "📅 <b>Прогноз на 3 дня</b>\n" . implode("\n", $rows);
+        return "📅 <b>Прогноз на 3 дня</b>\n<pre>" .
+            $this->escapeHtml(implode("\n", $rows)) .
+            "</pre>";
     }
 
     private function formatTemperature(
@@ -149,14 +159,36 @@ class WeatherMessageFormatter
         $suffix = "°" . $temperatureUnit;
 
         if ($value > 0) {
-            return "➕" . $formatted . $suffix;
+            return "+" . $formatted . $suffix;
         }
 
         if ($value < 0) {
-            return "➖" . number_format(abs($value), 1, ".", "") . $suffix;
+            return "-" . number_format(abs($value), 1, ".", "") . $suffix;
         }
 
         return $formatted . $suffix;
+    }
+
+    private function formatMetricLine(
+        string $label,
+        float|int|string $temperature,
+        string $temperatureUnit,
+    ): string {
+        return $this->padLabel($label, 8) .
+            " " .
+            $this->formatTemperature($temperature, $temperatureUnit);
+    }
+
+    private function padLabel(string $label, int $length): string
+    {
+        $label = trim($label);
+        $width = mb_strwidth($label, "UTF-8");
+
+        if ($width >= $length) {
+            return $label;
+        }
+
+        return $label . str_repeat(" ", $length - $width);
     }
 
     private function formatWind(float|int|string $speed, string $unit): string
