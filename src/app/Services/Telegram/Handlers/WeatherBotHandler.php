@@ -156,13 +156,17 @@ class WeatherBotHandler extends WebhookHandler
 
         $this->chat
             ->markdown($message)
-            ->keyboard(function ($keyboard) {
+            ->keyboard(function ($keyboard) use ($savedCity) {
                 $keyboard
                     ->button("📍 По локации")
                     ->action("get_weather_location");
                 $keyboard->button("🏙️ По городу")->action("get_weather_city");
                 $keyboard
-                    ->button("⭐ Сохраненный город")
+                    ->button(
+                        $savedCity !== null
+                            ? "🏙️ В городе {$savedCity}"
+                            : "⭐ Сохраненный город",
+                    )
                     ->action("get_weather_saved_city");
                 $keyboard->button("🏠 На главную")->action("start");
                 $keyboard->chunk(2);

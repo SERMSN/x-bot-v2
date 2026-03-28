@@ -200,17 +200,18 @@ class WeatherService
 
         $text = sprintf(
             "🌦️ <b>Погода в %s</b>\n\n" .
-                "🕒 Местное время: <b>%s</b>\n" .
                 "🌡 Температура: <b>%.1f°C</b>\n" .
                 "☁️ Состояние: <b>%s</b>\n" .
                 "💧 Влажность: <b>%d%%</b>\n" .
-                "🌬 Ветер: <b>%.1f м/с</b>",
+                "🌬 Ветер: <b>%.1f м/с</b>\n\n" .
+                "🕒 <b>Местное время</b>\n" .
+                "%s",
             $cityName,
-            $localNow->format("d.m.Y H:i"),
             $data["main"]["temp"],
             $data["weather"][0]["description"],
             $data["main"]["humidity"],
             $data["wind"]["speed"],
+            $localNow->format("d.m.Y H:i"),
         );
 
         $forecastSections = $this->formatHourlyForecast($forecastData, $data);
