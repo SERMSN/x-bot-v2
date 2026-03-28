@@ -212,9 +212,9 @@ class WeatherService
                 "☁️ Состояние: <b>%s</b>\n" .
                 "💧 Влажность: <b>%d%%</b>\n" .
                 "🌬 Ветер: <b>%.1f м/с</b>",
-            $cityName,
+            $this->escapeHtml($cityName),
             $this->formatTemperature($data["main"]["temp"]),
-            $data["weather"][0]["description"],
+            $this->escapeHtml((string) $data["weather"][0]["description"]),
             $data["main"]["humidity"],
             $data["wind"]["speed"],
         );
@@ -484,6 +484,11 @@ class WeatherService
         }
 
         return $formatted . "°C";
+    }
+
+    private function escapeHtml(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, "UTF-8");
     }
 
     private function timezoneFromOffset(int $offsetSeconds): \DateTimeZone

@@ -16,6 +16,16 @@ class WeatherBotHandler extends WebhookHandler
 {
     private const CANCEL_KEYWORDS = ["отмена", "cancel", "stop", "выход"];
 
+    protected function handleMessage(): void
+    {
+        if ($this->message?->location() !== null) {
+            $this->handleLocationMessage();
+            return;
+        }
+
+        parent::handleMessage();
+    }
+
     public function start(): void
     {
         $message = "🌤️ *Погодный бот*\n\n";
@@ -182,55 +192,6 @@ class WeatherBotHandler extends WebhookHandler
      */
     protected function handleChatMessage(Stringable $text): void
     {
-        // Если сообщение содержит локацию — запрашиваем прогноз и отправляем результат
-        if ($this->message?->location() !== null) {
-            $location = $this->message->location();
-            $lat = $location->latitude();
-            $lon = $location->longitude();
-
-            Log::debug("handleChatMessage: location received", [
-                "chat_id" => $this->chat->chat_id ?? null,
-                "lat" => $lat,
-                "lon" => $lon,
-            ]);
-
-            try {
-                if ($lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
-                    throw new \InvalidArgumentException("Invalid coordinates");
-                }
-
-                /** @var WeatherService $weatherService */
-                $weatherService = app(WeatherService::class);
-                $weather = $weatherService->getByCoordinates(
-                    (int) $this->bot->id,
-                    $lat,
-                    $lon,
-                );
-
-                $text = $weather["text"] ?? "Погода недоступна.";
-                $this->sendWeatherResponse($text, null, true);
-            } catch (\Throwable $e) {
-                Log::error("WeatherService error", ["exception" => $e]);
-                $this->chat
-                    ->html(
-                        "❌ Не удалось получить погоду по локации.\n\nПопробуйте позже.",
-                    )
-                    ->removeReplyKeyboard()
-                    ->send();
-                $this->logOutgoing(
-                    "❌ Не удалось получить погоду по локации.\n\nПопробуйте позже.",
-                    [
-                        "handler_action" => "get_weather_location",
-                        "is_error" => true,
-                    ],
-                );
-            }
-
-            return;
-        }
-
-        // ...existing code...
-
         // Если это команда
         if ($text->startsWith("/")) {
             parent::handleChatMessage($text);
@@ -360,6 +321,55 @@ class WeatherBotHandler extends WebhookHandler
             ->send();
 
         $this->logOutgoing($message, ["handler_action" => "get_weather_city"]);
+    }
+
+    private function handleLocationMessage(): void
+    {
+        $location = $this->message?->location();
+        if ($location === null) {
+            return;
+        }
+
+        $lat = $location->latitude();
+        $lon = $location->longitude();
+
+        Log::debug("handleLocationMessage: location received", [
+            "chat_id" => $this->chat->chat_id ?? null,
+            "lat" => $lat,
+            "lon" => $lon,
+        ]);
+
+        try {
+            if ($lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
+                throw new \InvalidArgumentException("Invalid coordinates");
+            }
+
+            /** @var WeatherService $weatherService */
+            $weatherService = app(WeatherService::class);
+            $weather = $weatherService->getByCoordinates(
+                (int) $this->bot->id,
+                $lat,
+                $lon,
+            );
+
+            $responseText = $weather["text"] ?? "Погода недоступна.";
+            $this->sendWeatherResponse($responseText, null, true);
+        } catch (\Throwable $e) {
+            Log::error("WeatherService location error", ["exception" => $e]);
+            $this->chat
+                ->html(
+                    "❌ Не удалось получить погоду по локации.\n\nПопробуйте позже.",
+                )
+                ->removeReplyKeyboard()
+                ->send();
+            $this->logOutgoing(
+                "❌ Не удалось получить погоду по локации.\n\nПопробуйте позже.",
+                [
+                    "handler_action" => "get_weather_location",
+                    "is_error" => true,
+                ],
+            );
+        }
     }
 
     public function set_default_city(): void
@@ -662,12 +672,16 @@ class WeatherBotHandler extends WebhookHandler
                 "exception" => $e->getMessage(),
             ]);
 
-            $send = $this->chat->html($text);
-            if ($removeReplyKeyboard) {
+            $fallbackText = trim(html_entity_decode(strip_tags($text)));
+            $send = $this->chat->message($fallbackText);
+            if (
+                $removeReplyKeyboard &&
+                method_exists($send, "removeReplyKeyboard")
+            ) {
                 $send->removeReplyKeyboard();
             }
             $send->send();
-            $this->logOutgoing($text, [
+            $this->logOutgoing($fallbackText, [
                 "handler_action" => "send_weather_response_fallback",
                 "has_image" => false,
                 "remove_reply_keyboard" => $removeReplyKeyboard,
