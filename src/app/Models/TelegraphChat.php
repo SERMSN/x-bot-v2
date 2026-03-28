@@ -18,6 +18,12 @@ class TelegraphChat extends BaseTelegraphChat
         "weather_city",
         "weather_city_lat",
         "weather_city_lon",
+        "weather_response_mode",
+        "weather_units",
+        "last_weather_query_type",
+        "last_weather_query_city",
+        "last_weather_query_lat",
+        "last_weather_query_lon",
     ];
 
     public function bot(): BelongsTo

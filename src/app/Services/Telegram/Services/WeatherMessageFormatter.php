@@ -6,30 +6,75 @@ class WeatherMessageFormatter
 {
     public function format(array $payload): string
     {
-        $text = sprintf(
+        $mode = (string) ($payload["response_mode"] ?? "detailed");
+        $text =
+            $mode === "brief"
+                ? $this->formatBrief($payload)
+                : $this->formatDetailed($payload);
+
+        $dailyForecast = $payload["daily_forecast"] ?? [];
+        if (is_array($dailyForecast) && $dailyForecast !== []) {
+            $text .=
+                "\n\n" . $this->formatDailyForecast($dailyForecast, $payload);
+        }
+
+        if ($mode === "detailed") {
+            $forecastSections = $payload["forecast_sections"] ?? [];
+            if (is_array($forecastSections) && $forecastSections !== []) {
+                $text .=
+                    "\n\n" . $this->formatForecastSections($forecastSections);
+            }
+
+            $text .= sprintf(
+                "\n\n🕒 <b>Местное время</b>\n%s",
+                $this->escapeHtml((string) $payload["local_time"]),
+            );
+        }
+
+        return $text;
+    }
+
+    private function formatDetailed(array $payload): string
+    {
+        return sprintf(
             "🌦️ <b>Погода в %s</b>\n\n" .
                 "🌡 Температура: <b>%s</b>\n" .
                 "☁️ Состояние: <b>%s</b>\n" .
                 "💧 Влажность: <b>%d%%</b>\n" .
-                "🌬 Ветер: <b>%.1f м/с</b>",
+                "🌬 Ветер: <b>%s</b>",
             $this->escapeHtml((string) $payload["city_name"]),
-            $this->formatTemperature($payload["current"]["temp"] ?? 0),
-            $this->escapeHtml((string) ($payload["current"]["description"] ?? "")),
+            $this->formatTemperature(
+                $payload["current"]["temp"] ?? 0,
+                (string) ($payload["temperature_unit"] ?? "C"),
+            ),
+            $this->escapeHtml(
+                (string) ($payload["current"]["description"] ?? ""),
+            ),
             (int) ($payload["current"]["humidity"] ?? 0),
-            (float) ($payload["current"]["wind_speed"] ?? 0),
+            $this->formatWind(
+                $payload["current"]["wind_speed"] ?? 0,
+                (string) ($payload["wind_speed_unit"] ?? "м/с"),
+            ),
         );
+    }
 
-        $forecastSections = $payload["forecast_sections"] ?? [];
-        if (is_array($forecastSections) && $forecastSections !== []) {
-            $text .= "\n\n" . $this->formatForecastSections($forecastSections);
-        }
-
-        $text .= sprintf(
-            "\n\n🕒 <b>Местное время</b>\n%s",
-            $this->escapeHtml((string) $payload["local_time"]),
+    private function formatBrief(array $payload): string
+    {
+        return sprintf(
+            "🌦️ <b>%s</b>\n" . "🌡 <b>%s</b>, %s\n" . "🌬 %s",
+            $this->escapeHtml((string) $payload["city_name"]),
+            $this->formatTemperature(
+                $payload["current"]["temp"] ?? 0,
+                (string) ($payload["temperature_unit"] ?? "C"),
+            ),
+            $this->escapeHtml(
+                (string) ($payload["current"]["description"] ?? ""),
+            ),
+            $this->formatWind(
+                $payload["current"]["wind_speed"] ?? 0,
+                (string) ($payload["wind_speed_unit"] ?? "м/с"),
+            ),
         );
-
-        return $text;
     }
 
     private function formatForecastSections(array $sections): string
@@ -57,26 +102,60 @@ class WeatherMessageFormatter
                 continue;
             }
 
-            $formattedSections[] = $title . "\n" . implode("\n", $formattedRows);
+            $formattedSections[] =
+                $title . "\n" . implode("\n", $formattedRows);
         }
 
         return implode("\n\n", $formattedSections);
     }
 
-    private function formatTemperature(float|int|string $temperature): string
-    {
+    private function formatDailyForecast(
+        array $dailyForecast,
+        array $payload,
+    ): string {
+        $rows = [];
+
+        foreach ($dailyForecast as $day) {
+            $rows[] = sprintf(
+                "%s: <b>%s / %s</b>, %s",
+                $this->escapeHtml((string) ($day["label"] ?? "")),
+                $this->formatTemperature(
+                    $day["temp_min"] ?? 0,
+                    (string) ($payload["temperature_unit"] ?? "C"),
+                ),
+                $this->formatTemperature(
+                    $day["temp_max"] ?? 0,
+                    (string) ($payload["temperature_unit"] ?? "C"),
+                ),
+                $this->escapeHtml((string) ($day["description"] ?? "")),
+            );
+        }
+
+        return "📅 <b>Прогноз на 3 дня</b>\n" . implode("\n", $rows);
+    }
+
+    private function formatTemperature(
+        float|int|string $temperature,
+        string $temperatureUnit,
+    ): string {
         $value = (float) $temperature;
         $formatted = number_format($value, 1, ".", "");
+        $suffix = "°" . $temperatureUnit;
 
         if ($value > 0) {
-            return "➕" . $formatted . "°C";
+            return "➕" . $formatted . $suffix;
         }
 
         if ($value < 0) {
-            return "➖" . number_format(abs($value), 1, ".", "") . "°C";
+            return "➖" . number_format(abs($value), 1, ".", "") . $suffix;
         }
 
-        return $formatted . "°C";
+        return $formatted . $suffix;
+    }
+
+    private function formatWind(float|int|string $speed, string $unit): string
+    {
+        return number_format((float) $speed, 1, ".", "") . " " . $unit;
     }
 
     private function escapeHtml(string $value): string

@@ -15,6 +15,11 @@ use Illuminate\Support\Facades\Log;
 class WeatherBotHandler extends WebhookHandler
 {
     private const CANCEL_KEYWORDS = ["отмена", "cancel", "stop", "выход"];
+    private const WEATHER_MODE_BRIEF = "brief";
+    private const WEATHER_MODE_DETAILED = "detailed";
+    private const WEATHER_UNITS_METRIC = "metric";
+    private const WEATHER_UNITS_IMPERIAL = "imperial";
+    private const LAST_QUERY_TYPE_COORDINATES = "coordinates";
 
     protected function handleMessage(): void
     {
@@ -89,6 +94,7 @@ class WeatherBotHandler extends WebhookHandler
     public function setting(): void
     {
         $savedCity = $this->getSavedCityName();
+        $preferences = $this->getWeatherPreferences();
         $savedCityLine =
             $savedCity !== null
                 ? "Сохраненный город: *{$savedCity}*.\n"
@@ -99,6 +105,12 @@ class WeatherBotHandler extends WebhookHandler
                 "⚙️ *Настройки*\n\n" .
                     "Действие: управление настройками.\n" .
                     $savedCityLine .
+                    "Формат ответа: *{$this->weatherModeLabel(
+                        $preferences["response_mode"],
+                    )}*.\n" .
+                    "Единицы: *{$this->weatherUnitsLabel(
+                        $preferences["units"],
+                    )}*.\n" .
                     "Подсказка: можно сохранить город для быстрого прогноза.",
             )
             ->keyboard($this->settingsKeyboard())
@@ -219,6 +231,15 @@ class WeatherBotHandler extends WebhookHandler
             case "set_default_city":
                 $this->set_default_city();
                 break;
+            case "refresh_weather":
+                $this->refresh_weather();
+                break;
+            case "toggle_weather_mode":
+                $this->toggle_weather_mode();
+                break;
+            case "toggle_weather_units":
+                $this->toggle_weather_units();
+                break;
             default:
                 $this->chat->html("Действие: {$callbackData}")->send();
                 $this->logOutgoing("Действие: {$callbackData}", [
@@ -307,6 +328,12 @@ class WeatherBotHandler extends WebhookHandler
                 (float) $savedCity["lat"],
                 (float) $savedCity["lon"],
             );
+            $this->rememberLastWeatherQuery(
+                self::LAST_QUERY_TYPE_COORDINATES,
+                (float) $savedCity["lat"],
+                (float) $savedCity["lon"],
+                (string) $savedCity["name"],
+            );
             $this->sendWeatherResponse(
                 $weather["text"] ?? "Погода недоступна.",
                 null,
@@ -317,10 +344,76 @@ class WeatherBotHandler extends WebhookHandler
                 "exception" => $e,
             ]);
             $this->sendWeatherFailure(
-                "❌ *Не удалось получить погоду по сохраненному городу.*",
+                "❌ Не удалось получить погоду по сохраненному городу.\n\nПопробуйте позже.",
                 "get_weather_saved_city",
             );
         }
+    }
+
+    public function refresh_weather(): void
+    {
+        $lastQuery = $this->getLastWeatherQuery();
+        if ($lastQuery === null) {
+            $this->sendWeatherFailure(
+                "❌ Нет последнего запроса для обновления.\n\nСначала запросите погоду.",
+                "refresh_weather",
+            );
+            return;
+        }
+
+        try {
+            $weather = $this->requestWeatherByCoordinates(
+                (float) $lastQuery["lat"],
+                (float) $lastQuery["lon"],
+            );
+            $this->sendWeatherResponse(
+                $weather["text"] ?? "Погода недоступна.",
+                null,
+                false,
+            );
+        } catch (\Throwable $e) {
+            Log::error("WeatherService refresh error", ["exception" => $e]);
+            $this->sendWeatherFailure(
+                "❌ Не удалось обновить прогноз.\n\nПопробуйте позже.",
+                "refresh_weather",
+            );
+        }
+    }
+
+    public function toggle_weather_mode(): void
+    {
+        $chat = $this->resolveChatModel();
+        if ($chat === null) {
+            return;
+        }
+
+        $currentMode = $this->normalizeWeatherMode(
+            $chat->weather_response_mode,
+        );
+        $chat->weather_response_mode =
+            $currentMode === self::WEATHER_MODE_DETAILED
+                ? self::WEATHER_MODE_BRIEF
+                : self::WEATHER_MODE_DETAILED;
+        $chat->save();
+
+        $this->setting();
+    }
+
+    public function toggle_weather_units(): void
+    {
+        $chat = $this->resolveChatModel();
+        if ($chat === null) {
+            return;
+        }
+
+        $currentUnits = $this->normalizeWeatherUnits($chat->weather_units);
+        $chat->weather_units =
+            $currentUnits === self::WEATHER_UNITS_METRIC
+                ? self::WEATHER_UNITS_IMPERIAL
+                : self::WEATHER_UNITS_METRIC;
+        $chat->save();
+
+        $this->setting();
     }
 
     private function isCancel(string $text): bool
@@ -366,7 +459,13 @@ class WeatherBotHandler extends WebhookHandler
 
             $validation = $this->validateCityInput($input);
             $weather = $this->requestWeatherByValidatedCity($validation);
-            $this->persistValidatedCity($validation);
+            $savedCity = $this->persistValidatedCity($validation);
+            $this->rememberLastWeatherQuery(
+                self::LAST_QUERY_TYPE_COORDINATES,
+                (float) ($validation["lat"] ?? 0),
+                (float) ($validation["lon"] ?? 0),
+                $savedCity,
+            );
 
             $this->sendWeatherResponse(
                 $weather["text"] ?? "Погода недоступна.",
@@ -397,6 +496,7 @@ class WeatherBotHandler extends WebhookHandler
         return $weatherService->getByCityName(
             (int) $this->bot->id,
             (string) $validation["normalized"],
+            $this->getWeatherPreferences(),
         );
     }
 
@@ -413,6 +513,7 @@ class WeatherBotHandler extends WebhookHandler
             (int) $this->bot->id,
             $lat,
             $lon,
+            $this->getWeatherPreferences(),
         );
     }
 
@@ -441,6 +542,12 @@ class WeatherBotHandler extends WebhookHandler
         }
 
         $this->saveCity($cityName, $lat, $lon);
+        $this->rememberLastWeatherQuery(
+            self::LAST_QUERY_TYPE_COORDINATES,
+            $lat,
+            $lon,
+            $cityName,
+        );
     }
 
     private function sendWeatherFailure(
@@ -575,6 +682,91 @@ class WeatherBotHandler extends WebhookHandler
         $chat->save();
     }
 
+    private function getWeatherPreferences(): array
+    {
+        $chat = $this->resolveChatModel();
+
+        return [
+            "response_mode" => $this->normalizeWeatherMode(
+                $chat?->weather_response_mode,
+            ),
+            "units" => $this->normalizeWeatherUnits($chat?->weather_units),
+        ];
+    }
+
+    private function normalizeWeatherMode(mixed $mode): string
+    {
+        return in_array(
+            $mode,
+            [self::WEATHER_MODE_BRIEF, self::WEATHER_MODE_DETAILED],
+            true,
+        )
+            ? (string) $mode
+            : self::WEATHER_MODE_DETAILED;
+    }
+
+    private function normalizeWeatherUnits(mixed $units): string
+    {
+        return in_array(
+            $units,
+            [self::WEATHER_UNITS_METRIC, self::WEATHER_UNITS_IMPERIAL],
+            true,
+        )
+            ? (string) $units
+            : self::WEATHER_UNITS_METRIC;
+    }
+
+    private function weatherModeLabel(string $mode): string
+    {
+        return $mode === self::WEATHER_MODE_BRIEF ? "кратко" : "подробно";
+    }
+
+    private function weatherUnitsLabel(string $units): string
+    {
+        return $units === self::WEATHER_UNITS_IMPERIAL ? "°F, mph" : "°C, м/с";
+    }
+
+    private function rememberLastWeatherQuery(
+        string $type,
+        float $lat,
+        float $lon,
+        ?string $city = null,
+    ): void {
+        $chat = $this->resolveChatModel();
+        if ($chat === null) {
+            return;
+        }
+
+        $chat->last_weather_query_type = $type;
+        $chat->last_weather_query_city = $city;
+        $chat->last_weather_query_lat = $lat;
+        $chat->last_weather_query_lon = $lon;
+        $chat->save();
+    }
+
+    private function getLastWeatherQuery(): ?array
+    {
+        $chat = $this->resolveChatModel();
+        if (
+            $chat === null ||
+            $chat->last_weather_query_type !==
+                self::LAST_QUERY_TYPE_COORDINATES ||
+            !is_numeric($chat->last_weather_query_lat) ||
+            !is_numeric($chat->last_weather_query_lon)
+        ) {
+            return null;
+        }
+
+        return [
+            "type" => (string) $chat->last_weather_query_type,
+            "city" => is_string($chat->last_weather_query_city)
+                ? $chat->last_weather_query_city
+                : null,
+            "lat" => (float) $chat->last_weather_query_lat,
+            "lon" => (float) $chat->last_weather_query_lon,
+        ];
+    }
+
     private function awaitingSavedCityCacheKey(): ?string
     {
         $telegramChatId = isset($this->chat->chat_id)
@@ -633,6 +825,8 @@ class WeatherBotHandler extends WebhookHandler
                 $send->removeReplyKeyboard();
             }
 
+            $send->keyboard($this->weatherAndHomeKeyboard());
+
             $send->send();
             $this->logOutgoing($text, [
                 "handler_action" => "send_weather_response",
@@ -651,6 +845,9 @@ class WeatherBotHandler extends WebhookHandler
                 method_exists($send, "removeReplyKeyboard")
             ) {
                 $send->removeReplyKeyboard();
+            }
+            if (method_exists($send, "keyboard")) {
+                $send->keyboard($this->weatherAndHomeKeyboard());
             }
             $send->send();
             $this->logOutgoing($fallbackText, [
@@ -697,6 +894,8 @@ class WeatherBotHandler extends WebhookHandler
         return Keyboard::make()
             ->buttons([
                 Button::make("🏙️ Сохранить город")->action("set_default_city"),
+                Button::make("📝 Формат")->action("toggle_weather_mode"),
+                Button::make("🌡 Единицы")->action("toggle_weather_units"),
                 Button::make("🏠 На главную")->action("start"),
             ])
             ->chunk(2);
@@ -739,6 +938,7 @@ class WeatherBotHandler extends WebhookHandler
     {
         return Keyboard::make()
             ->buttons([
+                Button::make("🔄 Обновить")->action("refresh_weather"),
                 Button::make("🌤️ Погода")->action("get_weather"),
                 Button::make("🏠 На главную")->action("start"),
             ])

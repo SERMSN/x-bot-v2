@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Log;
 class WeatherService
 {
     private const MAX_HOURLY_INTERVALS_PER_DAY = 4;
+    private const DAILY_FORECAST_DAYS = 3;
+    private const WEATHER_CACHE_SCHEMA_VERSION = "v3";
 
     public function __construct(
         private readonly WeatherMessageFormatter $messageFormatter,
@@ -105,26 +107,40 @@ class WeatherService
         return "";
     }
 
-    public function getByCoordinates(int $botId, float $lat, float $lon): array
-    {
+    public function getByCoordinates(
+        int $botId,
+        float $lat,
+        float $lon,
+        array $options = [],
+    ): array {
         if ($lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
             throw new \InvalidArgumentException("Invalid coordinates");
         }
 
-        $cacheKey = "weather_bot_{$botId}_{$lat}_{$lon}";
+        $settings = $this->resolveWeatherOptions($options);
+
+        $cacheKey = sprintf(
+            "weather_bot_%s_%d_%s_%s_%s_%s",
+            self::WEATHER_CACHE_SCHEMA_VERSION,
+            $botId,
+            $lat,
+            $lon,
+            $settings["units"],
+            $settings["response_mode"],
+        );
 
         return Cache::remember(
             $cacheKey,
             now()->addMinutes(
                 (int) config("weather.cache.weather_ttl_minutes", 60),
             ),
-            function () use ($botId, $lat, $lon) {
+            function () use ($botId, $lat, $lon, $settings) {
                 $config = $this->ensureApiConfig($botId);
                 $response = $this->httpClient()->get($config["weather_url"], [
                     "lat" => $lat,
                     "lon" => $lon,
                     "appid" => $config["api_key"],
-                    "units" => "metric",
+                    "units" => $settings["units"],
                     "lang" => "ru",
                 ]);
 
@@ -139,11 +155,13 @@ class WeatherService
                     $config,
                     $lat,
                     $lon,
+                    $settings["units"],
                 );
 
                 return $this->formatWeatherData(
                     $response->json(),
                     $forecastData,
+                    $settings,
                 );
             },
         );
@@ -205,8 +223,9 @@ class WeatherService
     protected function formatWeatherData(
         array $data,
         ?array $forecastData = null,
+        array $settings = [],
     ): array {
-        $payload = $this->buildWeatherPayload($data, $forecastData);
+        $payload = $this->buildWeatherPayload($data, $forecastData, $settings);
 
         return [
             "text" => $this->messageFormatter->format($payload),
@@ -225,13 +244,22 @@ class WeatherService
     private function buildWeatherPayload(
         array $data,
         ?array $forecastData = null,
+        array $settings = [],
     ): array {
         $cityName = $this->declineCityName($data["name"]);
         $timezone = $this->resolveTimezone($forecastData, $data);
         $localNow = $this->resolveLocalNow($data, $timezone);
+        $normalizedSettings = $this->resolveWeatherOptions($settings);
 
         return [
             "city_name" => $cityName,
+            "response_mode" => $normalizedSettings["response_mode"],
+            "temperature_unit" => $this->temperatureUnitLabel(
+                $normalizedSettings["units"],
+            ),
+            "wind_speed_unit" => $this->windSpeedUnitLabel(
+                $normalizedSettings["units"],
+            ),
             "current" => [
                 "temp" => (float) ($data["main"]["temp"] ?? 0),
                 "description" =>
@@ -243,12 +271,16 @@ class WeatherService
                 $forecastData,
                 $data,
             ),
+            "daily_forecast" => $this->buildDailyForecast($forecastData, $data),
             "local_time" => $localNow->format("d.m.Y H:i"),
         ];
     }
 
-    public function getByCityName(int $botId, string $cityName): array
-    {
+    public function getByCityName(
+        int $botId,
+        string $cityName,
+        array $options = [],
+    ): array {
         $cityName = trim($cityName);
         if (
             mb_strlen($cityName) <
@@ -256,20 +288,29 @@ class WeatherService
         ) {
             throw new \InvalidArgumentException("City name too short");
         }
+        $settings = $this->resolveWeatherOptions($options);
 
-        $cacheKey = "weather_city_bot_{$botId}_" . mb_strtolower($cityName);
+        $cacheKey =
+            "weather_city_bot_" .
+            self::WEATHER_CACHE_SCHEMA_VERSION .
+            "_{$botId}_" .
+            mb_strtolower($cityName) .
+            "_" .
+            $settings["units"] .
+            "_" .
+            $settings["response_mode"];
 
         return Cache::remember(
             $cacheKey,
             now()->addMinutes(
                 (int) config("weather.cache.weather_ttl_minutes", 60),
             ),
-            function () use ($botId, $cityName) {
+            function () use ($botId, $cityName, $settings) {
                 $config = $this->ensureApiConfig($botId);
                 $response = $this->httpClient()->get($config["weather_url"], [
                     "q" => $cityName,
                     "appid" => $config["api_key"],
-                    "units" => "metric",
+                    "units" => $settings["units"],
                     "lang" => "ru",
                 ]);
 
@@ -283,11 +324,13 @@ class WeatherService
                 $forecastData = $this->fetchForecastByCityName(
                     $config,
                     $cityName,
+                    $settings["units"],
                 );
 
                 return $this->formatWeatherData(
                     $response->json(),
                     $forecastData,
+                    $settings,
                 );
             },
         );
@@ -297,6 +340,7 @@ class WeatherService
         array $config,
         float $lat,
         float $lon,
+        string $units,
     ): ?array {
         if ($config["forecast_url"] === "") {
             return null;
@@ -306,7 +350,7 @@ class WeatherService
             "lat" => $lat,
             "lon" => $lon,
             "appid" => $config["api_key"],
-            "units" => "metric",
+            "units" => $units,
             "lang" => "ru",
         ]);
 
@@ -323,6 +367,7 @@ class WeatherService
     private function fetchForecastByCityName(
         array $config,
         string $cityName,
+        string $units,
     ): ?array {
         if ($config["forecast_url"] === "") {
             return null;
@@ -331,7 +376,7 @@ class WeatherService
         $response = $this->httpClient()->get($config["forecast_url"], [
             "q" => $cityName,
             "appid" => $config["api_key"],
-            "units" => "metric",
+            "units" => $units,
             "lang" => "ru",
         ]);
 
@@ -424,6 +469,89 @@ class WeatherService
         }
 
         return $sections;
+    }
+
+    private function buildDailyForecast(
+        ?array $forecastData,
+        array $currentData,
+    ): array {
+        if (
+            $forecastData === null ||
+            !isset($forecastData["list"]) ||
+            !is_array($forecastData["list"])
+        ) {
+            return [];
+        }
+
+        $timezone = $this->resolveTimezone($forecastData, $currentData);
+        $nowLocal = $this->resolveLocalNow($currentData, $timezone);
+        $todayKey = $nowLocal->format("Y-m-d");
+        $days = [];
+
+        foreach ($forecastData["list"] as $item) {
+            if (
+                !isset(
+                    $item["dt"],
+                    $item["main"]["temp"],
+                    $item["weather"][0]["description"],
+                )
+            ) {
+                continue;
+            }
+
+            $itemLocal = new \DateTimeImmutable("@" . $item["dt"]);
+            $itemLocal = $itemLocal->setTimezone($timezone);
+            $dateKey = $itemLocal->format("Y-m-d");
+
+            if ($dateKey <= $todayKey) {
+                continue;
+            }
+
+            if (!isset($days[$dateKey])) {
+                $days[$dateKey] = [
+                    "label" => $this->dailyForecastLabel($itemLocal, $nowLocal),
+                    "temp_min" => (float) $item["main"]["temp"],
+                    "temp_max" => (float) $item["main"]["temp"],
+                    "description" =>
+                        (string) $item["weather"][0]["description"],
+                    "description_hour_distance" => abs(
+                        ((int) $itemLocal->format("H")) - 12,
+                    ),
+                ];
+            } else {
+                $days[$dateKey]["temp_min"] = min(
+                    $days[$dateKey]["temp_min"],
+                    (float) $item["main"]["temp"],
+                );
+                $days[$dateKey]["temp_max"] = max(
+                    $days[$dateKey]["temp_max"],
+                    (float) $item["main"]["temp"],
+                );
+
+                $distanceToNoon = abs(((int) $itemLocal->format("H")) - 12);
+                if (
+                    $distanceToNoon <
+                    $days[$dateKey]["description_hour_distance"]
+                ) {
+                    $days[$dateKey]["description"] =
+                        (string) $item["weather"][0]["description"];
+                    $days[$dateKey][
+                        "description_hour_distance"
+                    ] = $distanceToNoon;
+                }
+            }
+        }
+
+        $result = [];
+        foreach (
+            array_slice($days, 0, self::DAILY_FORECAST_DAYS, true)
+            as $day
+        ) {
+            unset($day["description_hour_distance"]);
+            $result[] = $day;
+        }
+
+        return $result;
     }
 
     private function resolveTimezone(
@@ -582,5 +710,49 @@ class WeatherService
 
         // Если не подошло ни одно правило, возвращаем исходное название
         return $cityName;
+    }
+
+    private function resolveWeatherOptions(array $options): array
+    {
+        $units = (string) ($options["units"] ?? "metric");
+        if (!in_array($units, ["metric", "imperial"], true)) {
+            $units = "metric";
+        }
+
+        $responseMode = (string) ($options["response_mode"] ?? "detailed");
+        if (!in_array($responseMode, ["brief", "detailed"], true)) {
+            $responseMode = "detailed";
+        }
+
+        return [
+            "units" => $units,
+            "response_mode" => $responseMode,
+        ];
+    }
+
+    private function temperatureUnitLabel(string $units): string
+    {
+        return $units === "imperial" ? "F" : "C";
+    }
+
+    private function windSpeedUnitLabel(string $units): string
+    {
+        return $units === "imperial" ? "mph" : "м/с";
+    }
+
+    private function dailyForecastLabel(
+        \DateTimeImmutable $day,
+        \DateTimeImmutable $nowLocal,
+    ): string {
+        $diffDays = (int) $nowLocal
+            ->setTime(0, 0, 0)
+            ->diff($day->setTime(0, 0, 0))
+            ->format("%a");
+
+        if ($diffDays === 1) {
+            return "Завтра";
+        }
+
+        return $day->format("d.m");
     }
 }
