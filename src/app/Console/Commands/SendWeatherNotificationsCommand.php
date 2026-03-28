@@ -50,6 +50,17 @@ class SendWeatherNotificationsCommand extends Command
     ): void {
         try {
             $timezone = $this->resolveTimezone($chat);
+            if ($timezone === null) {
+                Log::warning(
+                    "Weather notification skipped because timezone is missing",
+                    [
+                        "chat_id" => $chat->id,
+                        "telegraph_bot_id" => $chat->telegraph_bot_id,
+                    ],
+                );
+                return;
+            }
+
             $now = Carbon::now($timezone);
             $notificationTime = (string) $chat->weather_notification_time;
             $scheduledAt = Carbon::createFromFormat(
@@ -169,19 +180,19 @@ class SendWeatherNotificationsCommand extends Command
         return $minutes > 0 ? $minutes : 1;
     }
 
-    private function resolveTimezone(TelegraphChat $chat): string
+    private function resolveTimezone(TelegraphChat $chat): ?string
     {
         $timezone = $chat->weather_notification_timezone;
 
         if (!is_string($timezone) || $timezone === "") {
-            return (string) config("app.timezone", "UTC");
+            return null;
         }
 
         try {
             new \DateTimeZone($timezone);
             return $timezone;
         } catch (\Throwable $e) {
-            return (string) config("app.timezone", "UTC");
+            return null;
         }
     }
 

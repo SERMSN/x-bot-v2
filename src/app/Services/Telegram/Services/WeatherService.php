@@ -237,8 +237,41 @@ class WeatherService
                 "lon" => isset($data["coord"]["lon"])
                     ? (float) $data["coord"]["lon"]
                     : null,
+                "timezone" => $this->resolveTimezoneIdentifier(
+                    $forecastData,
+                    $data,
+                ),
             ],
         ];
+    }
+
+    public function resolveNotificationTimezoneByCoordinates(
+        int $botId,
+        float $lat,
+        float $lon,
+    ): string {
+        if ($lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
+            throw new \InvalidArgumentException("Invalid coordinates");
+        }
+
+        $config = $this->ensureApiConfig($botId);
+        $response = $this->httpClient()->get($config["weather_url"], [
+            "lat" => $lat,
+            "lon" => $lon,
+            "appid" => $config["api_key"],
+            "lang" => "ru",
+        ]);
+
+        if (!$response->successful()) {
+            Log::warning("OpenWeather timezone resolution API error", [
+                "status" => $response->status(),
+                "lat" => $lat,
+                "lon" => $lon,
+            ]);
+            throw new \Exception("Timezone resolution request failed");
+        }
+
+        return $this->resolveTimezoneIdentifier(null, $response->json());
     }
 
     private function buildWeatherPayload(
@@ -563,6 +596,13 @@ class WeatherService
                 ($currentData["timezone"] ?? 0));
 
         return $this->timezoneFromOffset($timezoneOffset);
+    }
+
+    private function resolveTimezoneIdentifier(
+        ?array $forecastData,
+        array $currentData,
+    ): string {
+        return $this->resolveTimezone($forecastData, $currentData)->getName();
     }
 
     private function resolveLocalNow(

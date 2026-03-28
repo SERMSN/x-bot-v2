@@ -517,8 +517,22 @@ class WeatherBotHandler extends WebhookHandler
 
         $chat->weather_notifications_enabled = !$this->isWeatherNotificationsEnabled();
 
-        if ($chat->weather_notification_timezone === null) {
-            $chat->weather_notification_timezone = $this->defaultNotificationTimezone();
+        if ($chat->weather_notifications_enabled) {
+            $this->ensureNotificationTimezone($chat);
+
+            if (
+                $this->normalizeNotificationTimezone(
+                    $chat->weather_notification_timezone,
+                ) === null
+            ) {
+                $chat->weather_notifications_enabled = false;
+
+                $this->sendWeatherFailure(
+                    "❌ Не удалось определить часовой пояс для сохраненного города.\n\nОбновите сохраненный город или сначала получите погоду по нему.",
+                    "toggle_weather_notifications",
+                );
+                return;
+            }
         }
 
         if ($chat->weather_notification_time === null) {
@@ -618,9 +632,7 @@ class WeatherBotHandler extends WebhookHandler
         }
 
         $chat->weather_notification_time = $input;
-        if ($chat->weather_notification_timezone === null) {
-            $chat->weather_notification_timezone = $this->defaultNotificationTimezone();
-        }
+        $this->ensureNotificationTimezone($chat);
         $chat->save();
 
         $message = "✅ *Время уведомлений сохранено*\n\n";
@@ -709,11 +721,16 @@ class WeatherBotHandler extends WebhookHandler
     {
         $savedCity =
             (string) ($validation["display_name"] ?? $validation["name"]);
+        $timezone = $this->resolveNotificationTimezoneForCoordinates(
+            (float) ($validation["lat"] ?? 0),
+            (float) ($validation["lon"] ?? 0),
+        );
 
         $this->saveCity(
             $savedCity,
             (float) ($validation["lat"] ?? 0),
             (float) ($validation["lon"] ?? 0),
+            $timezone,
         );
 
         return $savedCity;
@@ -729,7 +746,11 @@ class WeatherBotHandler extends WebhookHandler
             return;
         }
 
-        $this->saveCity($cityName, $lat, $lon);
+        $timezone = $this->normalizeNotificationTimezone(
+            $weather["city"]["timezone"] ?? null,
+        );
+
+        $this->saveCity($cityName, $lat, $lon, $timezone);
         $this->rememberLastWeatherQuery(
             self::LAST_QUERY_TYPE_COORDINATES,
             $lat,
@@ -844,6 +865,9 @@ class WeatherBotHandler extends WebhookHandler
             "name" => $savedCity,
             "lat" => (float) $chat->weather_city_lat,
             "lon" => (float) $chat->weather_city_lon,
+            "timezone" => $this->normalizeNotificationTimezone(
+                $chat->weather_notification_timezone,
+            ),
         ];
     }
 
@@ -857,8 +881,12 @@ class WeatherBotHandler extends WebhookHandler
         return $savedCity["name"];
     }
 
-    private function saveCity(string $city, float $lat, float $lon): void
-    {
+    private function saveCity(
+        string $city,
+        float $lat,
+        float $lon,
+        ?string $timezone = null,
+    ): void {
         $chat = $this->resolveChatModel();
         if ($chat === null) {
             return;
@@ -867,7 +895,40 @@ class WeatherBotHandler extends WebhookHandler
         $chat->weather_city = $city;
         $chat->weather_city_lat = $lat;
         $chat->weather_city_lon = $lon;
+
+        $normalizedTimezone = $this->normalizeNotificationTimezone($timezone);
+        if ($normalizedTimezone !== null) {
+            $chat->weather_notification_timezone = $normalizedTimezone;
+        }
+
         $chat->save();
+    }
+
+    private function resolveNotificationTimezoneForCoordinates(
+        float $lat,
+        float $lon,
+    ): ?string {
+        try {
+            /** @var WeatherService $weatherService */
+            $weatherService = app(WeatherService::class);
+
+            return $this->normalizeNotificationTimezone(
+                $weatherService->resolveNotificationTimezoneByCoordinates(
+                    (int) $this->bot->id,
+                    $lat,
+                    $lon,
+                ),
+            );
+        } catch (\Throwable $e) {
+            Log::warning("Weather notification timezone resolve failed", [
+                "telegraph_bot_id" => $this->bot->id ?? null,
+                "lat" => $lat,
+                "lon" => $lon,
+                "exception" => $e,
+            ]);
+
+            return null;
+        }
     }
 
     private function getWeatherPreferences(): array
@@ -890,7 +951,7 @@ class WeatherBotHandler extends WebhookHandler
                 $chat?->weather_notification_timezone,
             )
                 ? $chat->weather_notification_timezone
-                : $this->defaultNotificationTimezone(),
+                : "не определен",
             "notification_mode" => $this->normalizeNotificationMode(
                 $chat?->weather_notification_mode,
             ),
@@ -983,6 +1044,49 @@ class WeatherBotHandler extends WebhookHandler
     private function defaultNotificationTimezone(): string
     {
         return (string) config("app.timezone", "UTC");
+    }
+
+    private function normalizeNotificationTimezone(mixed $timezone): ?string
+    {
+        if (!is_string($timezone) || trim($timezone) === "") {
+            return null;
+        }
+
+        try {
+            $normalized = trim($timezone);
+            new \DateTimeZone($normalized);
+
+            return $normalized;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function ensureNotificationTimezone(TelegraphChat $chat): void
+    {
+        if (
+            $this->normalizeNotificationTimezone(
+                $chat->weather_notification_timezone,
+            ) !== null
+        ) {
+            return;
+        }
+
+        if (
+            !is_numeric($chat->weather_city_lat) ||
+            !is_numeric($chat->weather_city_lon)
+        ) {
+            return;
+        }
+
+        $timezone = $this->resolveNotificationTimezoneForCoordinates(
+            (float) $chat->weather_city_lat,
+            (float) $chat->weather_city_lon,
+        );
+
+        if ($timezone !== null) {
+            $chat->weather_notification_timezone = $timezone;
+        }
     }
 
     private function rememberLastWeatherQuery(
