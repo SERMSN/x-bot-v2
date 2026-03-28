@@ -111,6 +111,7 @@ class WeatherBotHandler extends WebhookHandler
                     "Единицы: *{$this->weatherUnitsLabel(
                         $preferences["units"],
                     )}*.\n" .
+                    "Автосохранение по локации: *{$this->autoSaveLocationCityLabel()}*.\n" .
                     "Подсказка: можно сохранить город для быстрого прогноза.",
             )
             ->keyboard($this->settingsKeyboard())
@@ -240,6 +241,9 @@ class WeatherBotHandler extends WebhookHandler
             case "toggle_weather_units":
                 $this->toggle_weather_units();
                 break;
+            case "toggle_auto_save_location_city":
+                $this->toggle_auto_save_location_city();
+                break;
             default:
                 $this->chat->html("Действие: {$callbackData}")->send();
                 $this->logOutgoing("Действие: {$callbackData}", [
@@ -281,7 +285,9 @@ class WeatherBotHandler extends WebhookHandler
 
         try {
             $weather = $this->requestWeatherByCoordinates($lat, $lon);
-            $this->persistCityFromWeather($weather, $lat, $lon);
+            if ($this->isAutoSaveLocationCityEnabled()) {
+                $this->persistCityFromWeather($weather, $lat, $lon);
+            }
             $this->sendWeatherResponse(
                 $weather["text"] ?? "Погода недоступна.",
                 null,
@@ -411,6 +417,19 @@ class WeatherBotHandler extends WebhookHandler
             $currentUnits === self::WEATHER_UNITS_METRIC
                 ? self::WEATHER_UNITS_IMPERIAL
                 : self::WEATHER_UNITS_METRIC;
+        $chat->save();
+
+        $this->setting();
+    }
+
+    public function toggle_auto_save_location_city(): void
+    {
+        $chat = $this->resolveChatModel();
+        if ($chat === null) {
+            return;
+        }
+
+        $chat->weather_auto_save_location_city = !$this->isAutoSaveLocationCityEnabled();
         $chat->save();
 
         $this->setting();
@@ -726,6 +745,20 @@ class WeatherBotHandler extends WebhookHandler
         return $units === self::WEATHER_UNITS_IMPERIAL ? "°F, mph" : "°C, м/с";
     }
 
+    private function isAutoSaveLocationCityEnabled(): bool
+    {
+        $chat = $this->resolveChatModel();
+
+        return $chat === null
+            ? true
+            : (bool) ($chat->weather_auto_save_location_city ?? true);
+    }
+
+    private function autoSaveLocationCityLabel(): string
+    {
+        return $this->isAutoSaveLocationCityEnabled() ? "вкл" : "выкл";
+    }
+
     private function rememberLastWeatherQuery(
         string $type,
         float $lat,
@@ -886,6 +919,9 @@ class WeatherBotHandler extends WebhookHandler
                 Button::make("🏙️ Сохранить город")->action("set_default_city"),
                 Button::make("📝 Формат")->action("toggle_weather_mode"),
                 Button::make("🌡 Единицы")->action("toggle_weather_units"),
+                Button::make("📍 Автосохранение")->action(
+                    "toggle_auto_save_location_city",
+                ),
                 Button::make("🏠 На главную")->action("start"),
             ])
             ->chunk(2);

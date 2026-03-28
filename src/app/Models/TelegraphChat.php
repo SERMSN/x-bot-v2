@@ -20,6 +20,7 @@ class TelegraphChat extends BaseTelegraphChat
         "weather_city_lon",
         "weather_response_mode",
         "weather_units",
+        "weather_auto_save_location_city",
         "last_weather_query_type",
         "last_weather_query_city",
         "last_weather_query_lat",
