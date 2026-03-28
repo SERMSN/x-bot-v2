@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Log;
 
 class WeatherService
 {
+    private const MAX_HOURLY_INTERVALS_PER_DAY = 4;
+
     private function httpClient()
     {
         return Http::timeout(
@@ -193,23 +195,27 @@ class WeatherService
         ?array $forecastData = null,
     ): array {
         $cityName = $this->declineCityName($data["name"]);
+        $timezone = $this->resolveTimezone($forecastData, $data);
+        $localNow = $this->resolveLocalNow($data, $timezone);
 
         $text = sprintf(
             "🌦️ <b>Погода в %s</b>\n\n" .
+                "🕒 Местное время: <b>%s</b>\n" .
                 "🌡 Температура: <b>%.1f°C</b>\n" .
                 "☁️ Состояние: <b>%s</b>\n" .
                 "💧 Влажность: <b>%d%%</b>\n" .
                 "🌬 Ветер: <b>%.1f м/с</b>",
             $cityName,
+            $localNow->format("d.m.Y H:i"),
             $data["main"]["temp"],
             $data["weather"][0]["description"],
             $data["main"]["humidity"],
             $data["wind"]["speed"],
         );
 
-        $hourlyText = $this->formatHourlyForecast($forecastData, $data);
-        if ($hourlyText !== "") {
-            $text .= "\n\n" . $hourlyText;
+        $forecastSections = $this->formatHourlyForecast($forecastData, $data);
+        if ($forecastSections !== []) {
+            $text .= "\n\n" . implode("\n\n", $forecastSections);
         }
 
         return [
@@ -318,27 +324,23 @@ class WeatherService
     private function formatHourlyForecast(
         ?array $forecastData,
         array $currentData,
-    ): string {
+    ): array {
         if (
             $forecastData === null ||
             !isset($forecastData["list"]) ||
             !is_array($forecastData["list"])
         ) {
-            return "";
+            return [];
         }
 
-        $timezoneOffset =
-            (int) ($forecastData["city"]["timezone"] ??
-                ($currentData["timezone"] ?? 0));
-        $timezone = $this->timezoneFromOffset($timezoneOffset);
-
-        $nowUtc = (int) ($currentData["dt"] ?? time());
-        $nowLocal = new \DateTimeImmutable("@{$nowUtc}")->setTimezone(
-            $timezone,
-        );
+        $timezone = $this->resolveTimezone($forecastData, $currentData);
+        $nowLocal = $this->resolveLocalNow($currentData, $timezone);
         $endOfDayLocal = $nowLocal->setTime(23, 59, 59);
+        $tomorrowStartLocal = $nowLocal->modify("+1 day")->setTime(0, 0, 0);
+        $tomorrowEndLocal = $tomorrowStartLocal->setTime(23, 59, 59);
 
-        $rows = [];
+        $todayRows = [];
+        $tomorrowRows = [];
         foreach ($forecastData["list"] as $item) {
             if (!isset($item["dt"], $item["main"]["temp"])) {
                 continue;
@@ -352,22 +354,76 @@ class WeatherService
                 continue;
             }
 
-            if ($itemLocal > $endOfDayLocal) {
-                continue;
-            }
-
-            $rows[] = sprintf(
-                "%s — <b>%.1f°C</b>",
+            $row = sprintf(
+                "%s - <b>%.1f°C</b>",
                 $itemLocal->format("H:i"),
                 $item["main"]["temp"],
             );
+
+            if ($itemLocal <= $endOfDayLocal) {
+                $todayRows[] = $row;
+                continue;
+            }
+
+            if (
+                $itemLocal >= $tomorrowStartLocal &&
+                $itemLocal <= $tomorrowEndLocal
+            ) {
+                $tomorrowRows[] = $row;
+            }
         }
 
-        if ($rows === []) {
-            return "";
+        $sections = [];
+
+        if ($todayRows !== []) {
+            $sections[] =
+                "🕒 До конца дня:\n" .
+                implode(
+                    "\n",
+                    array_slice(
+                        $todayRows,
+                        0,
+                        self::MAX_HOURLY_INTERVALS_PER_DAY,
+                    ),
+                );
         }
 
-        return "🕒 До конца дня:\n" . implode("\n", $rows);
+        if ($tomorrowRows !== []) {
+            $sections[] = sprintf(
+                "📅 Завтра, %s:\n%s",
+                $tomorrowStartLocal->format("d.m"),
+                implode(
+                    "\n",
+                    array_slice(
+                        $tomorrowRows,
+                        0,
+                        self::MAX_HOURLY_INTERVALS_PER_DAY,
+                    ),
+                ),
+            );
+        }
+
+        return $sections;
+    }
+
+    private function resolveTimezone(
+        ?array $forecastData,
+        array $currentData,
+    ): \DateTimeZone {
+        $timezoneOffset =
+            (int) ($forecastData["city"]["timezone"] ??
+                ($currentData["timezone"] ?? 0));
+
+        return $this->timezoneFromOffset($timezoneOffset);
+    }
+
+    private function resolveLocalNow(
+        array $currentData,
+        \DateTimeZone $timezone,
+    ): \DateTimeImmutable {
+        $nowUtc = (int) ($currentData["dt"] ?? time());
+
+        return new \DateTimeImmutable("@{$nowUtc}")->setTimezone($timezone);
     }
 
     private function timezoneFromOffset(int $offsetSeconds): \DateTimeZone
