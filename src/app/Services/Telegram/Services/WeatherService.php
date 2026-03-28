@@ -11,6 +11,10 @@ class WeatherService
 {
     private const MAX_HOURLY_INTERVALS_PER_DAY = 4;
 
+    public function __construct(
+        private readonly WeatherMessageFormatter $messageFormatter,
+    ) {}
+
     private function httpClient()
     {
         return Http::timeout(
@@ -202,35 +206,35 @@ class WeatherService
         array $data,
         ?array $forecastData = null,
     ): array {
+        $payload = $this->buildWeatherPayload($data, $forecastData);
+
+        return [
+            "text" => $this->messageFormatter->format($payload),
+        ];
+    }
+
+    private function buildWeatherPayload(
+        array $data,
+        ?array $forecastData = null,
+    ): array {
         $cityName = $this->declineCityName($data["name"]);
         $timezone = $this->resolveTimezone($forecastData, $data);
         $localNow = $this->resolveLocalNow($data, $timezone);
 
-        $text = sprintf(
-            "🌦️ <b>Погода в %s</b>\n\n" .
-                "🌡 Температура: <b>%s</b>\n" .
-                "☁️ Состояние: <b>%s</b>\n" .
-                "💧 Влажность: <b>%d%%</b>\n" .
-                "🌬 Ветер: <b>%.1f м/с</b>",
-            $this->escapeHtml($cityName),
-            $this->formatTemperature($data["main"]["temp"]),
-            $this->escapeHtml((string) $data["weather"][0]["description"]),
-            $data["main"]["humidity"],
-            $data["wind"]["speed"],
-        );
-
-        $forecastSections = $this->formatHourlyForecast($forecastData, $data);
-        if ($forecastSections !== []) {
-            $text .= "\n\n" . implode("\n\n", $forecastSections);
-        }
-
-        $text .= sprintf(
-            "\n\n🕒 <b>Местное время</b>\n%s",
-            $localNow->format("d.m.Y H:i"),
-        );
-
         return [
-            "text" => $text,
+            "city_name" => $cityName,
+            "current" => [
+                "temp" => (float) ($data["main"]["temp"] ?? 0),
+                "description" =>
+                    (string) ($data["weather"][0]["description"] ?? ""),
+                "humidity" => (int) ($data["main"]["humidity"] ?? 0),
+                "wind_speed" => (float) ($data["wind"]["speed"] ?? 0),
+            ],
+            "forecast_sections" => $this->buildHourlyForecastSections(
+                $forecastData,
+                $data,
+            ),
+            "local_time" => $localNow->format("d.m.Y H:i"),
         ];
     }
 
@@ -332,7 +336,7 @@ class WeatherService
         return $response->json();
     }
 
-    private function formatHourlyForecast(
+    private function buildHourlyForecastSections(
         ?array $forecastData,
         array $currentData,
     ): array {
@@ -365,11 +369,10 @@ class WeatherService
                 continue;
             }
 
-            $row = sprintf(
-                "%s - <b>%s</b>",
-                $itemLocal->format("H:i"),
-                $this->formatTemperature($item["main"]["temp"]),
-            );
+            $row = [
+                "time" => $itemLocal->format("H:i"),
+                "temp" => (float) $item["main"]["temp"],
+            ];
 
             if ($itemLocal <= $endOfDayLocal) {
                 $todayRows[] = $row;
@@ -387,31 +390,28 @@ class WeatherService
         $sections = [];
 
         if ($todayRows !== []) {
-            $sections[] =
-                "🕒 До конца дня:\n" .
-                implode(
-                    "\n",
-                    array_slice(
-                        $todayRows,
-                        0,
-                        self::MAX_HOURLY_INTERVALS_PER_DAY,
-                    ),
-                );
+            $sections[] = [
+                "title" => "🕒 До конца дня:",
+                "rows" => array_slice(
+                    $todayRows,
+                    0,
+                    self::MAX_HOURLY_INTERVALS_PER_DAY,
+                ),
+            ];
         }
 
         if ($tomorrowRows !== []) {
-            $sections[] = sprintf(
-                "📅 Завтра, %s:\n%s",
-                $tomorrowStartLocal->format("d.m"),
-                implode(
-                    "\n",
-                    array_slice(
-                        $tomorrowRows,
-                        0,
-                        self::MAX_HOURLY_INTERVALS_PER_DAY,
-                    ),
+            $sections[] = [
+                "title" => sprintf(
+                    "📅 Завтра, %s:",
+                    $tomorrowStartLocal->format("d.m"),
                 ),
-            );
+                "rows" => array_slice(
+                    $tomorrowRows,
+                    0,
+                    self::MAX_HOURLY_INTERVALS_PER_DAY,
+                ),
+            ];
         }
 
         return $sections;
@@ -468,27 +468,6 @@ class WeatherService
         }
 
         return false;
-    }
-
-    private function formatTemperature(float|int|string $temperature): string
-    {
-        $value = (float) $temperature;
-        $formatted = number_format($value, 1, ".", "");
-
-        if ($value > 0) {
-            return "➕" . $formatted . "°C";
-        }
-
-        if ($value < 0) {
-            return "➖" . number_format(abs($value), 1, ".", "") . "°C";
-        }
-
-        return $formatted . "°C";
-    }
-
-    private function escapeHtml(string $value): string
-    {
-        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, "UTF-8");
     }
 
     private function timezoneFromOffset(int $offsetSeconds): \DateTimeZone
