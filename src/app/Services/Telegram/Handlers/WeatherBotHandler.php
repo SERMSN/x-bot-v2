@@ -821,10 +821,6 @@ class WeatherBotHandler extends WebhookHandler
                 $send = $this->chat->html($text);
             }
 
-            if ($removeReplyKeyboard) {
-                $send->removeReplyKeyboard();
-            }
-
             $send->keyboard($this->weatherAndHomeKeyboard());
 
             $send->send();
@@ -840,12 +836,6 @@ class WeatherBotHandler extends WebhookHandler
 
             $fallbackText = trim(html_entity_decode(strip_tags($text)));
             $send = $this->chat->message($fallbackText);
-            if (
-                $removeReplyKeyboard &&
-                method_exists($send, "removeReplyKeyboard")
-            ) {
-                $send->removeReplyKeyboard();
-            }
             if (method_exists($send, "keyboard")) {
                 $send->keyboard($this->weatherAndHomeKeyboard());
             }
