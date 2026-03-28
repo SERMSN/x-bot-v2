@@ -821,7 +821,7 @@ class WeatherBotHandler extends WebhookHandler
                 $send = $this->chat->html($text);
             }
 
-            $send->keyboard($this->weatherAndHomeKeyboard());
+            $send = $send->keyboard($this->weatherAndHomeKeyboard());
 
             $send->send();
             $this->logOutgoing($text, [
@@ -837,7 +837,7 @@ class WeatherBotHandler extends WebhookHandler
             $fallbackText = trim(html_entity_decode(strip_tags($text)));
             $send = $this->chat->message($fallbackText);
             if (method_exists($send, "keyboard")) {
-                $send->keyboard($this->weatherAndHomeKeyboard());
+                $send = $send->keyboard($this->weatherAndHomeKeyboard());
             }
             $send->send();
             $this->logOutgoing($fallbackText, [
