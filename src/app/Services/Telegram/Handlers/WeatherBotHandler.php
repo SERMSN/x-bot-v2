@@ -49,12 +49,31 @@ class WeatherBotHandler extends WebhookHandler
     public function help(): void
     {
         $message = "📚 *Помощь*\n\n";
-        $message .= "Действие: команды и сценарии.\n";
-        $message .= "Подсказка: можно отправить город текстом.\n\n";
+        $message .= "Действие: команды, сценарии и возможности.\n";
+        $message .=
+            "Подсказка: можно отправить город текстом или выбрать локацию.\n\n";
         $message .= "Команды:\n";
         $message .= "/start — Главное меню\n";
         $message .= "/help — Справка\n";
-        $message .= "/weather — Получить погоду\n\n";
+        $message .= "/weather — Получить погоду\n";
+        $message .= "/setting — Настройки\n";
+        $message .= "/subscription — Подписка\n\n";
+        $message .= "Возможности:\n";
+        $message .= "• Погода по городу, локации и сохраненному городу\n";
+        $message .= "• Кнопка *Обновить* после ответа с погодой\n";
+        $message .= "• Формат ответа: *кратко* или *подробно*\n";
+        $message .= "• Единицы измерения: *°C, м/с* или *°F, mph*\n";
+        $message .= "• Краткий прогноз на 3 дня\n";
+        $message .=
+            "• В подробном режиме: почасовой прогноз на сегодня и завтра\n";
+        $message .= "• Сохраненный город для быстрого запроса\n";
+        $message .=
+            "• Автосохранение города после запроса по локации можно включать и выключать\n\n";
+        $message .= "Настройки:\n";
+        $message .= "• Сохраненный город\n";
+        $message .= "• Формат ответа\n";
+        $message .= "• Единицы измерения\n";
+        $message .= "• Автосохранение по локации\n\n";
         $message .= "Для отмены отправьте: *Отмена*.";
 
         $this->chat
@@ -103,18 +122,18 @@ class WeatherBotHandler extends WebhookHandler
         $this->chat
             ->markdown(
                 "⚙️ *Настройки*\n\n" .
-                    "Действие: управление настройками.\n" .
+                    "Действие: управление погодными настройками.\n" .
                     $savedCityLine .
-                    "Формат ответа: *{$this->weatherModeLabel(
+                    "Формат: *{$this->weatherModeLabel(
                         $preferences["response_mode"],
                     )}*.\n" .
                     "Единицы: *{$this->weatherUnitsLabel(
                         $preferences["units"],
                     )}*.\n" .
-                    "Автосохранение по локации: *{$this->autoSaveLocationCityLabel()}*.\n" .
-                    "Подсказка: можно сохранить город для быстрого прогноза.",
+                    "Локация -> сохранить город: *{$this->autoSaveLocationCityLabel()}*.\n\n" .
+                    "Подсказка: кнопки ниже сразу переключают режимы.",
             )
-            ->keyboard($this->settingsKeyboard())
+            ->keyboard($this->settingsKeyboard($preferences))
             ->send();
 
         $this->logOutgoing("⚙️ *Настройки*", ["handler_action" => "setting"]);
@@ -745,6 +764,11 @@ class WeatherBotHandler extends WebhookHandler
         return $units === self::WEATHER_UNITS_IMPERIAL ? "°F, mph" : "°C, м/с";
     }
 
+    private function shortWeatherUnitsLabel(string $units): string
+    {
+        return $units === self::WEATHER_UNITS_IMPERIAL ? "°F" : "°C";
+    }
+
     private function isAutoSaveLocationCityEnabled(): bool
     {
         $chat = $this->resolveChatModel();
@@ -912,16 +936,22 @@ class WeatherBotHandler extends WebhookHandler
             ->chunk(2);
     }
 
-    private function settingsKeyboard(): Keyboard
+    private function settingsKeyboard(array $preferences): Keyboard
     {
         return Keyboard::make()
             ->buttons([
                 Button::make("🏙️ Сохранить город")->action("set_default_city"),
-                Button::make("📝 Формат")->action("toggle_weather_mode"),
-                Button::make("🌡 Единицы")->action("toggle_weather_units"),
-                Button::make("📍 Автосохранение")->action(
-                    "toggle_auto_save_location_city",
-                ),
+                Button::make(
+                    "📝 Формат: " .
+                        $this->weatherModeLabel($preferences["response_mode"]),
+                )->action("toggle_weather_mode"),
+                Button::make(
+                    "🌡 Единицы: " .
+                        $this->shortWeatherUnitsLabel($preferences["units"]),
+                )->action("toggle_weather_units"),
+                Button::make(
+                    "📍 Локация: " . $this->autoSaveLocationCityLabel(),
+                )->action("toggle_auto_save_location_city"),
                 Button::make("🏠 На главную")->action("start"),
             ])
             ->chunk(2);
