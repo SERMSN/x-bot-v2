@@ -30,6 +30,9 @@ class SendWeatherNotificationsCommand extends Command
         /** @var Collection<int, Collection<int, TelegraphChat>> $chats */
         foreach ($chats as $botId => $botChats) {
             if (!$this->shouldProcessBot((int) $botId)) {
+                Log::info("Weather notifications skipped by bot interval", [
+                    "telegraph_bot_id" => (int) $botId,
+                ]);
                 continue;
             }
 
@@ -49,8 +52,23 @@ class SendWeatherNotificationsCommand extends Command
             $timezone = $this->resolveTimezone($chat);
             $now = Carbon::now($timezone);
             $notificationTime = (string) $chat->weather_notification_time;
+            $scheduledAt = Carbon::createFromFormat(
+                "Y-m-d H:i",
+                $now->format("Y-m-d") . " " . $notificationTime,
+                $timezone,
+            );
 
-            if ($now->format("H:i") !== $notificationTime) {
+            if ($now->lt($scheduledAt)) {
+                Log::info(
+                    "Weather notification skipped before scheduled time",
+                    [
+                        "chat_id" => $chat->id,
+                        "telegraph_bot_id" => $chat->telegraph_bot_id,
+                        "timezone" => $timezone,
+                        "now" => $now->format("Y-m-d H:i"),
+                        "notification_time" => $notificationTime,
+                    ],
+                );
                 return;
             }
 
@@ -60,6 +78,11 @@ class SendWeatherNotificationsCommand extends Command
                     "Y-m-d",
                 ) === $now->format("Y-m-d")
             ) {
+                Log::info("Weather notification skipped because already sent", [
+                    "chat_id" => $chat->id,
+                    "telegraph_bot_id" => $chat->telegraph_bot_id,
+                    "date" => $now->format("Y-m-d"),
+                ]);
                 return;
             }
 
@@ -81,6 +104,14 @@ class SendWeatherNotificationsCommand extends Command
 
             $chat->weather_last_notification_date = $now->toDateString();
             $chat->save();
+
+            Log::info("Weather notification sent", [
+                "chat_id" => $chat->id,
+                "telegraph_bot_id" => $chat->telegraph_bot_id,
+                "timezone" => $timezone,
+                "sent_at" => $now->format("Y-m-d H:i"),
+                "notification_time" => $notificationTime,
+            ]);
         } catch (\Throwable $e) {
             Log::error("Weather notification send failed", [
                 "chat_id" => $chat->id,
@@ -105,6 +136,12 @@ class SendWeatherNotificationsCommand extends Command
         }
 
         Cache::put($cacheKey, $now->toIso8601String(), now()->addDay());
+
+        Log::info("Weather notifications bot processing allowed", [
+            "telegraph_bot_id" => $botId,
+            "interval_minutes" => $intervalMinutes,
+            "processed_at" => $now->toDateTimeString(),
+        ]);
 
         return true;
     }
