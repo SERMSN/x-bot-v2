@@ -47,6 +47,57 @@ class DivinationBotHandler extends WebhookHandler
         "День подходит для начала нового проекта.",
     ];
 
+    private const CARDS = [
+        [
+            "name" => "Солнце",
+            "meaning" => "Карта ясности, энергии и уверенного движения вперед.",
+            "description" =>
+                "Сейчас удачный момент действовать открыто, не прятать идеи и показывать свои сильные стороны. То, что долго было неочевидным, начинает проясняться.",
+        ],
+        [
+            "name" => "Луна",
+            "meaning" => "Карта интуиции, скрытых мотивов и внутреннего поиска.",
+            "description" =>
+                "Не все в ситуации лежит на поверхности. Полезно не спешить с выводами, прислушаться к ощущениям и проверить детали перед решением.",
+        ],
+        [
+            "name" => "Звезда",
+            "meaning" => "Карта надежды, восстановления и спокойной уверенности.",
+            "description" =>
+                "Даже если путь сейчас кажется длинным, направление выбрано верно. Сохраняйте ритм, потому что результаты появятся через последовательность, а не через рывок.",
+        ],
+        [
+            "name" => "Колесо Фортуны",
+            "meaning" => "Карта перемен, поворота событий и нового цикла.",
+            "description" =>
+                "Обстоятельства могут быстро измениться, и важно не цепляться за старую схему. Гибкость и готовность поймать момент сейчас важнее жесткого контроля.",
+        ],
+        [
+            "name" => "Император",
+            "meaning" => "Карта структуры, порядка и ответственности.",
+            "description" =>
+                "Ситуацию лучше решать через план, границы и четкие шаги. Уверенность придет не от вдохновения, а от дисциплины и понятной опоры.",
+        ],
+        [
+            "name" => "Маг",
+            "meaning" => "Карта инициативы, мастерства и запуска нового действия.",
+            "description" =>
+                "У вас уже есть достаточно ресурсов, чтобы начать. Не ждите идеального момента: первый конкретный шаг даст больше, чем долгие сомнения.",
+        ],
+        [
+            "name" => "Отшельник",
+            "meaning" => "Карта паузы, наблюдения и внутренней мудрости.",
+            "description" =>
+                "Лучший ответ сейчас рождается в тишине, а не в шуме мнений. Полезно сократить внешнюю суету и дать себе время все обдумать.",
+        ],
+        [
+            "name" => "Сила",
+            "meaning" => "Карта выдержки, самообладания и мягкой внутренней мощи.",
+            "description" =>
+                "Сейчас побеждает не давление, а спокойная устойчивость. Если действовать без резкости, но настойчиво, ситуация постепенно повернется в вашу пользу.",
+        ],
+    ];
+
     public function start(): void
     {
         $message = "🔮 *Бот-оракул*\n\n";
@@ -61,9 +112,12 @@ class DivinationBotHandler extends WebhookHandler
                         Button::make(
                             "🔯 Генерация случайного предсказания",
                         )->action("random_prediction"),
+                        Button::make("🃏 Генерация карты предсказания")->action(
+                            "random_card_prediction",
+                        ),
                         Button::make("❓ Помощь")->action("help"),
                     ])
-                    ->chunk(1),
+                    ->chunk(2),
             )
             ->send();
     }
@@ -74,7 +128,11 @@ class DivinationBotHandler extends WebhookHandler
         $message .= "Команды:\n";
         $message .= "/start — Главное меню\n";
         $message .= "/help — Справка\n";
-        $message .= "/predict — Случайное предсказание";
+        $message .= "/predict — Случайное предсказание\n";
+        $message .= "/card — Карта предсказания\n\n";
+        $message .= "Возможности:\n";
+        $message .= "• Случайное короткое предсказание\n";
+        $message .= "• Случайная карта с толкованием";
 
         $this->chat
             ->markdown($message)
@@ -82,8 +140,11 @@ class DivinationBotHandler extends WebhookHandler
                 Keyboard::make()
                     ->buttons([
                         Button::make(
-                            "♉ Генерация случайного предсказания",
+                            "🔯 Случайное предсказание",
                         )->action("random_prediction"),
+                        Button::make("🃏 Карта предсказания")->action(
+                            "random_card_prediction",
+                        ),
                         Button::make("🏠 На главную")->action("start"),
                     ])
                     ->chunk(2),
@@ -94,6 +155,11 @@ class DivinationBotHandler extends WebhookHandler
     public function predict(): void
     {
         $this->random_prediction();
+    }
+
+    public function card(): void
+    {
+        $this->random_card_prediction();
     }
 
     public function random_prediction(bool $editCurrent = false): void
@@ -123,6 +189,38 @@ class DivinationBotHandler extends WebhookHandler
             ->send();
     }
 
+    public function random_card_prediction(bool $editCurrent = false): void
+    {
+        $card = self::CARDS[array_rand(self::CARDS)];
+
+        $message = "🃏 *Ваша карта предсказания*\n\n";
+        $message .= "*Карта:* {$card["name"]}\n";
+        $message .= "*Значение:* {$card["meaning"]}\n\n";
+        $message .= "{$card["description"]}";
+
+        $telegraph =
+            $editCurrent && isset($this->messageId)
+                ? $this->chat->edit($this->messageId)
+                : $this->chat;
+
+        $telegraph
+            ->markdown($message)
+            ->keyboard(
+                Keyboard::make()
+                    ->buttons([
+                        Button::make("🃏 Еще карта")->action(
+                            "random_card_prediction",
+                        ),
+                        Button::make("🔯 Обычное предсказание")->action(
+                            "random_prediction",
+                        ),
+                        Button::make("🏠 На главную")->action("start"),
+                    ])
+                    ->chunk(2),
+            )
+            ->send();
+    }
+
     protected function handleCallbackQuery(): void
     {
         $this->extractCallbackQueryData();
@@ -138,6 +236,9 @@ class DivinationBotHandler extends WebhookHandler
         switch ($action) {
             case "random_prediction":
                 $this->random_prediction(true);
+                break;
+            case "random_card_prediction":
+                $this->random_card_prediction(true);
                 break;
             case "help":
                 $this->help();

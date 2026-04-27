@@ -1,283 +1,219 @@
-# X-Bot v2.0
-## Платформа интеллектуальных Telegram-ботов
+# X-Bot v2
 
-Экосистема интеллектуальных Telegram-ботов для автоматизации бизнеса и повседневных задач. Каждый бот разработан с нуля с учетом надежности, производительности и удобства использования.
+Платформа для нескольких Telegram-ботов на Laravel 12, Filament 4 и DefStudio Telegraph. Проект объединяет админ-панель, публичную витрину ботов и единый webhook-роут для обработки Telegram-обновлений.
 
----
+## Что есть в проекте
+- погодный бот с погодой по городу и геолокации;
+- VIN-бот с декодированием VIN через внешний API;
+- бот-предсказатель;
+- админ-панель Filament для управления ботами, чатами, настройками и логами;
+- логирование входящих и исходящих сообщений в БД;
+- планировщик погодных уведомлений;
+- Docker Compose для локального запуска;
+- GitHub Actions workflow для инкрементального деплоя.
 
-## 📋 Содержание
+## Стек
+- PHP 8.2+
+- Laravel 12
+- Filament 4.x
+- DefStudio Telegraph `^1.66`
+- Vite 7
+- Tailwind CSS 4
+- MySQL 8.4 или SQLite
 
-- [Описание](#описание)
-- [Возможности](#возможности)
-- [Требования](#требования)
-- [Установка](#установка)
-- [Конфигурация](#конфигурация)
-- [Запуск](#запуск)
-- [Тестирование](#тестирование)
-- [Структура проекта](#структура-проекта)
-- [Решение проблем](#решение-проблем)
+## Структура
+```text
+x-bot-v2/
+├── src/                   # Laravel приложение
+├── docs/                  # Документация
+├── scripts/               # Скрипты деплоя
+├── .docker/               # Docker окружение
+├── .github/workflows/     # CI/CD
+├── docker-compose.yml
+└── README.md
+```
 
----
-
-## 📝 Описание
-
-X-Bot v2.0 — это приложение, построенное на **Laravel 12** и **Filament PHP 4.0**, предназначенное для управления и развертывания умных Telegram-ботов.
-
-Приложение включает:
-- Полнофункциональную административную панель на базе Filament
-- Управление ботами Telegram через Telegraph
-- Современный стек веб-технологий (Laravel + Filament)
-- Docker поддержку для быстрого развертывания
-
----
-
-## ✨ Возможности
-
-- 🤖 Создание и управление Telegram-ботами
-- 🎛️ Административная панель (Filament PHP)
-- 💾 SQLite и MySQL базы данных
-- 🐳 Docker Compose конфигурация
-- 👥 Система управления пользователями
-- 📊 Управление чатами и сообщениями
-- ⚙️ Расширяемая архитектура
-
----
-
-## 🔧 Требования
-
-- **PHP**: 8.2 или выше
-- **Composer**: последняя версия
-- **Node.js**: 18.x или выше (для Vite)
-- **Docker**: 20.10+ (опционально)
-- **Docker Compose**: 2.0+ (опционально)
-- **MySQL**: 8.4 или SQLite (встроена)
-
----
-
-## 📦 Установка
-
-### Без Docker
-
+## Быстрый старт без Docker
 ```bash
-# Клонируйте репозиторий
-git clone <repo-url>
-cd x-bot-v2
-
-# Установите PHP зависимости
 cd src
 composer install
-
-# Установите Node.js зависимости
 npm install
-
-# Скопируйте .env файл
 cp .env.example .env
+php artisan key:generate
+php artisan migrate
 ```
 
-### С Docker
+После этого запустите разработку:
 
 ```bash
-# Разверните контейнеры
-docker-compose up -d
+composer run dev
+```
 
-# Установите зависимости внутри контейнера PHP
+Команда поднимает:
+- `php artisan serve`
+- `php artisan queue:listen --tries=1`
+- `php artisan pail --timeout=0`
+- `npm run dev`
+
+## Быстрый старт через Docker
+```bash
+docker-compose up -d
 docker-compose exec php composer install
 docker-compose exec php npm install
+docker-compose exec php cp .env.example .env
+docker-compose exec php php artisan key:generate
+docker-compose exec php php artisan migrate
 ```
 
----
+Сервисы:
+- приложение: `http://localhost`
+- phpMyAdmin: `http://localhost:8080`
 
-## ⚙️ Конфигурация
+## Основные маршруты
+- `/` — публичная панель Filament
+- `/admin` — админ-панель Filament
+- `/telegram/{token}` — webhook Telegram
+- `/up` — health-check
 
-### Переменные окружения
+## Конфигурация
+Базовые настройки берутся из `src/.env`. В `.env.example` уже есть:
+- подключение к БД;
+- database-драйверы для cache, queue и session;
+- TTL и timeout-настройки Telegram/weather/VIN интеграций.
 
-Отредактируйте файл `.env` в директории `src/`:
+Важно понимать разделение настроек:
 
-```env
-APP_NAME=X-Bot
-APP_ENV=local
-APP_DEBUG=true
-APP_URL=http://localhost
+### Через `.env`
+- `APP_*`
+- `DB_*`
+- `TELEGRAPH_*`
+- `TELEGRAM_WEBHOOK_DEDUP_TTL_MINUTES`
+- `WEATHER_*`
+- `VIN_*`
 
-# База данных (SQLite или MySQL)
-DB_CONNECTION=sqlite
-# или для MySQL:
-# DB_CONNECTION=mysql
-# DB_HOST=localhost
-# DB_PORT=3306
-# DB_DATABASE=xbotv2
-# DB_USERNAME=root
-# DB_PASSWORD=password
+### Через таблицу `bot_settings`
+Настройки задаются отдельно для каждого бота в админке:
+- `OPENWEATHER_API_KEY`
+- `OPENWEATHER_API_URL`
+- `WEATHER_NOTIFICATION_RUN_INTERVAL_MINUTES`
+- `VIN_API_DECODE_URL`
 
-# Telegraph (Telegram Bot API)
-TELEGRAPH_BOT_TOKEN=ваш_bot_token_здесь
-TELEGRAPH_BOT_ID=ваш_bot_id_здесь
+### Через таблицу `app_settings`
+Глобальные настройки интерфейса:
+- цвет `primary` для `/admin` и `/`
+- верхнее или левое меню для каждой панели
+
+## Модели и ресурсы
+
+### Основные модели
+- `App\Models\TelegramBot`
+- `App\Models\TelegraphChat`
+- `App\Models\BotSetting`
+- `App\Models\AppSetting`
+- `App\Models\ChatLog`
+- `App\Models\User`
+
+### Filament ресурсы
+- `TelegramBotResource`
+- `TelegraphChatResource`
+- `BotSettingResource`
+- `AppSettingResource`
+- `ChatLogResource`
+
+## Боты
+
+### Weather bot
+Возможности:
+- `/start`, `/help`, `/weather`, `/setting`, `/subscription`
+- погода по городу;
+- погода по геолокации;
+- сохраненный город;
+- краткий и подробный формат ответа;
+- `metric` и `imperial`;
+- ежедневные уведомления;
+- автосохранение города после локации.
+
+Зависимости:
+- `OPENWEATHER_API_KEY`
+- `OPENWEATHER_API_URL`
+
+### VIN bot
+Возможности:
+- `/start`, `/help`, `/vin`
+- проверка структуры VIN;
+- запрос к внешнему decode API;
+- вывод марки, модели, года и других атрибутов.
+
+Зависимости:
+- `VIN_API_DECODE_URL`
+
+### Divination bot
+Возможности:
+- `/start`, `/help`, `/predict`, `/card`
+- случайные короткие предсказания через inline-кнопки;
+- случайная карта предсказания с названием, значением и описанием;
+- переключение между обычным предсказанием и картой из меню ответа.
+
+## Планировщик
+В `src/routes/console.php` настроена задача:
+
+```php
+Schedule::command(SendWeatherNotificationsCommand::class)->everyMinute();
 ```
 
-### Миграции БД
+Для production нужен работающий scheduler Laravel:
 
 ```bash
-# Запустите миграции
-php artisan migrate
-
-# С сидированием (опционально)
-php artisan migrate:seed
+php artisan schedule:work
 ```
 
----
+или cron с `php artisan schedule:run`.
 
-## 🚀 Запуск
-
-### Локальная разработка
+## Тесты
+Сейчас в проекте есть только базовые примеры Laravel:
 
 ```bash
 cd src
-
-# Запустите Laravel dev сервер
-php artisan serve
-
-# В отдельном терминале: запустите Vite для фронтенда
-npm run dev
-
-# Откройте в браузере
-http://localhost:8000
-```
-
-### Из Docker
-
-```bash
-# Откройте браузер
-http://localhost
-
-# Просмотр логов
-docker-compose logs -f php
-```
-
-### Консольные команды
-
-```bash
-# Tinker интерактивная оболочка
-php artisan tinker
-
-# Очистить кэш
-php artisan cache:clear
-php artisan config:clear
-php artisan view:clear
-```
-
----
-
-## 🧪 Тестирование
-
-```bash
-cd src
-
-# Запустите тесты PHPUnit
 php artisan test
-
-# Запустите тесты с отчетом об охвате
-php artisan test --coverage
 ```
 
----
+Отдельных тестов на webhook, обработчики ботов и сервисы пока нет.
 
-## 📂 Структура проекта
+## Docker Compose
+В `docker-compose.yml` описаны:
+- `nginx`
+- `php`
+- `mysql`
+- `phpmyadmin`
 
-```
-x-bot-v2/
-├── src/                    # Основной код приложения Laravel
-│   ├── app/
-│   │   ├── Models/         # Модели БД
-│   │   ├── Http/           # Контроллеры
-│   │   ├── Services/       # Бизнес-логика
-│   │   ├── Console/        # Artisan команды
-│   │   └── Filament/       # Панель администратора
-│   ├── config/             # Конфигурационные файлы
-│   ├── database/
-│   │   ├── migrations/     # Миграции БД
-│   │   └── factories/      # Фабрики для тестов
-│   ├── routes/             # Маршруты приложения
-│   ├── resources/          # Views и стили
-│   ├── storage/            # Хранилище логов и файлов
-│   ├── tests/              # Тесты
-│   ├── composer.json       # PHP зависимости
-│   └── package.json        # Node.js зависимости
-├── .docker/                # Docker конфигурации
-│   ├── php/                # Dockerfile для PHP
-│   └── nginx/              # Конфигурация Nginx
-├── docker-compose.yml      # Docker Compose конфигурация
-└── README.md               # Этот файл
-```
+По умолчанию MySQL создается с БД `xbotv2`.
 
----
+## Деплой
+В репозитории есть два направления:
+- `.github/workflows/deploy.yml` — инкрементальная выгрузка измененных файлов по SSH/rsync;
+- `scripts/deploy.sh` — отдельный release-based deploy script.
 
-## 🔍 Главные компоненты
+Дополнительная инструкция:
+- [docs/deploy-server-checklist.md](docs/deploy-server-checklist.md)
 
-### Models (Модели)
-- **User** — пользователи приложения
-- **TelegramBot** — информация о Telegram-ботах
-- **TelegraphChat** — чаты и беседы
+Замечание: в текущем workflow деплой настроен на ветку `master`, а в чеклисте указана `main`. Перед реальным использованием это нужно привести к одному варианту.
 
-### Services
-- **Telegram Service** — интеграция с Telegram API через Telegraph
-
-### Filament
-- Административная панель для управления ботами и пользователями
-
----
-
-## ❓ Решение проблем
-
-### Ошибка: "База данных заблокирована"
-```bash
-# Переинициализируйте БД
-rm src/database/database.sqlite
-php artisan migrate
-```
-
-### Ошибка: "Composer конфликт зависимостей"
+## Полезные команды
 ```bash
 cd src
-composer install --no-cache
+php artisan migrate
+php artisan optimize:clear
+php artisan config:cache
+php artisan route:list
+php artisan about
+php artisan weather:send-notifications
+php artisan test
 ```
 
-### Docker контейнеры не запускаются
-```bash
-# Проверьте логи
-docker-compose logs
-
-# Пересоберите образы
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
-```
-
-### Нет доступа к административной панели
-- По умолчанию панель доступна по адресу `/admin`
-- Создайте пользователя через консоль: `php artisan tinker`
-
----
-
-## 📚 Документация
-
-- [Laravel Documentation](https://laravel.com/docs)
-- [Filament Documentation](https://filamentphp.com)
-- [Telegraph Documentation](https://github.com/defstudio/telegraph)
-
----
-
-## 📄 Лицензия
-
-Проект лицензирован под лицензией MIT. Подробнее см. в файле `LICENSE`.
-
----
-
-## 👥 Контакты и поддержка
-
-Для вопросов, предложений и багрепортов, пожалуйста:
-- Создайте Issue в репозитории
-- Свяжитесь с командой разработчиков
-
----
-
-**X-Bot v2.0** © 2026 | Построено на Laravel и Filament
+## Что важно помнить
+- боты не настраиваются через `TELEGRAPH_BOT_TOKEN` в `.env`, они хранятся в таблице `telegraph_bots`;
+- выбор обработчика идет по полю `handler_class` и ключам из `config/bots.php`;
+- webhook защищается секретом `TELEGRAPH_WEBHOOK_SECRET`, если он задан;
+- входящие и исходящие события сохраняются в `chat_logs`;
+- для `/telegram/*` отключена CSRF-проверка;
+- проект уже использует публичную Filament main-панель, а не только статический лендинг.
