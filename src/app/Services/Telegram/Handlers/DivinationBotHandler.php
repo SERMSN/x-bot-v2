@@ -5,7 +5,7 @@ namespace App\Services\Telegram\Handlers;
 use DefStudio\Telegraph\Handlers\WebhookHandler;
 use DefStudio\Telegraph\Keyboard\Button;
 use DefStudio\Telegraph\Keyboard\Keyboard;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Stringable;
 
 class DivinationBotHandler extends WebhookHandler
@@ -171,6 +171,7 @@ class DivinationBotHandler extends WebhookHandler
     public function random_card_prediction(bool $editCurrent = false): void
     {
         $card = self::CARDS[array_rand(self::CARDS)];
+        $imagePath = $this->resolveCardImagePath($card);
 
         $message = "🃏 *Ваша карта предсказания*\n\n";
         $message .= "*Карта:* {$card["name"]}\n";
@@ -178,8 +179,8 @@ class DivinationBotHandler extends WebhookHandler
         $message .= "{$card["description"]}";
 
         $this->chat
-            ->photo($this->resolveCardImagePath($card))
             ->markdown($message)
+            ->photo($imagePath)
             ->keyboard($this->cardResultKeyboard())
             ->send();
     }
@@ -234,7 +235,23 @@ class DivinationBotHandler extends WebhookHandler
 
     private function resolveCardImagePath(array $card): string
     {
-        return public_path(trim((string) $card["local_image"], "/"));
+        $path = $this->publicAssetPath((string) $card["local_image"]);
+
+        if (!File::isFile($path)) {
+            throw new \RuntimeException("Divination card image is missing: {$path}");
+        }
+
+        return $path;
+    }
+
+    private function publicAssetPath(string $relativePath): string
+    {
+        $basePath = rtrim(
+            (string) env("PUBLIC_ASSETS_PATH", public_path()),
+            "/",
+        );
+
+        return $basePath . "/" . trim($relativePath, "/");
     }
 
     private function mainMenuKeyboard(): Keyboard
@@ -312,10 +329,8 @@ class DivinationBotHandler extends WebhookHandler
                 if (is_string($action) && $action !== "") {
                     return $action;
                 }
-            } catch (\Throwable $e) {
-                Log::debug("Divination callback parse object error", [
-                    "error" => $e->getMessage(),
-                ]);
+            } catch (\Throwable) {
+                return "";
             }
         }
 
