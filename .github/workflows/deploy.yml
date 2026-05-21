@@ -22,12 +22,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install sshpass
+      - name: Install deploy tools
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update
-          sudo apt-get install -y sshpass
+          sudo apt-get install -y sshpass rsync
 
       - name: Prepare changed files list
         env:
@@ -105,6 +105,16 @@ jobs:
           [[ -n "${DEPLOY_PASSWORD}" ]] || { echo "DEPLOY_PASSWORD is empty"; exit 1; }
           sshpass -p "${DEPLOY_PASSWORD}" ssh -o StrictHostKeyChecking=no -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "mkdir -p '${REMOTE_LARAVEL_DIR}' '${REMOTE_PUBLIC_DIR}'"
+
+      - name: Ensure rsync on remote
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST || vars.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || vars.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER || vars.DEPLOY_USER }}
+          DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD || vars.DEPLOY_PASSWORD }}
+        run: |
+          sshpass -p "${DEPLOY_PASSWORD}" ssh -o StrictHostKeyChecking=no -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "command -v rsync >/dev/null 2>&1 || { command -v apt-get >/dev/null 2>&1 && apt-get update && apt-get install -y rsync; }"
 
       - name: Upload changed files to Laravel src
         env:
