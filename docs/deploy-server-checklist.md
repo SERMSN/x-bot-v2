@@ -1,14 +1,14 @@
-# Checklist: Timeweb (SSH по паролю) + GitHub Actions
+# Checklist: VPS (SSH по паролю) + GitHub Actions
 
 Актуальные вводные:
-- SSH хост: `vh434.timeweb.ru`
-- SSH пользователь: `wrcss`
+- SSH хост: задается в GitHub Secret `DEPLOY_HOST`
+- SSH пользователь: задается в GitHub Secret `DEPLOY_USER`
 - Авторизация: логин/пароль (без SSH-ключей)
-- Ветка деплоя: `main`
+- Ветка деплоя: `master`
 - Тип деплоя: инкрементальный (только измененные файлы между push)
 - Пути на сервере:
-`src/*` -> `/home/w/wrcss/x-bot2/src`
-`src/public/*` -> `/home/w/wrcss/x-bot2/public_html`
+`src/*` -> `/var/www/x-bot.su/src`
+`src/public/*` -> `/var/www/x-bot.su/public_html`
 
 Важно:
 - SSH пароль не хранить в репозитории и документации, только в GitHub Secrets.
@@ -19,7 +19,7 @@
 На локальной машине:
 
 ```bash
-ssh wrcss@vh434.timeweb.ru
+ssh <DEPLOY_USER>@<DEPLOY_HOST>
 ```
 
 Если вход успешный, продолжаем настройку CI.
@@ -29,8 +29,8 @@ ssh wrcss@vh434.timeweb.ru
 После входа на сервер:
 
 ```bash
-mkdir -p /home/w/wrcss/x-bot2/src
-mkdir -p /home/w/wrcss/x-bot2/public_html
+mkdir -p /var/www/x-bot.su/src
+mkdir -p /var/www/x-bot.su/public_html
 ```
 
 ## 3. Первичная полная заливка (один раз)
@@ -39,8 +39,8 @@ mkdir -p /home/w/wrcss/x-bot2/public_html
 Из корня репозитория `x-bot-v2` на локальной машине:
 
 ```bash
-rsync -az --delete -e "ssh -p 22" src/ wrcss@vh434.timeweb.ru:/home/w/wrcss/x-bot2/src/
-rsync -az --delete -e "ssh -p 22" src/public/ wrcss@vh434.timeweb.ru:/home/w/wrcss/x-bot2/public_html/
+rsync -az --delete -e "ssh -p 22" src/ <DEPLOY_USER>@<DEPLOY_HOST>:/var/www/x-bot.su/src/
+rsync -az --delete -e "ssh -p 22" src/public/ <DEPLOY_USER>@<DEPLOY_HOST>:/var/www/x-bot.su/public_html/
 ```
 
 ## 4. Первая инициализация Laravel на сервере
@@ -48,7 +48,7 @@ rsync -az --delete -e "ssh -p 22" src/public/ wrcss@vh434.timeweb.ru:/home/w/wrc
 На сервере:
 
 ```bash
-cd /home/w/wrcss/x-bot2/src
+cd /var/www/x-bot.su/src
 cp .env.example .env
 nano .env
 ```
@@ -57,6 +57,7 @@ nano .env
 - `APP_ENV=production`
 - `APP_DEBUG=false`
 - `APP_URL=https://<ваш-домен>`
+- `PUBLIC_ASSETS_PATH=/var/www/x-bot.su/public_html`
 - `DB_HOST=127.0.0.1`
 - `DB_PORT=3306`
 - `DB_DATABASE=...`
@@ -67,7 +68,7 @@ nano .env
 Инициализация:
 
 ```bash
-cd /home/w/wrcss/x-bot2/src
+cd /var/www/x-bot.su/src
 /opt/php84/bin/php /opt/php84/bin/composer install --no-dev --optimize-autoloader
 /opt/php84/bin/php artisan key:generate
 /opt/php84/bin/php artisan migrate --force
@@ -84,22 +85,22 @@ chmod -R 775 storage bootstrap/cache
 - установка `sshpass` на GitHub runner;
 - вычисление измененных файлов между `github.event.before` и `github.sha`;
 - раздельная выгрузка:
-  - `src/*` в `/home/w/wrcss/x-bot2/src`
-  - `src/public/*` в `/home/w/wrcss/x-bot2/public_html`;
+  - `src/*` в `/var/www/x-bot.su/src`
+  - `src/public/*` в `/var/www/x-bot.su/public_html`;
 - удаление удаленных из git файлов на сервере.
 
 Что должно остаться в workflow:
 1. `DEPLOY_HOST`, `DEPLOY_PORT`, `DEPLOY_USER`, `DEPLOY_PASSWORD` берутся только из Secrets.
 2. Все `ssh` и `rsync` команды вызываются через `sshpass -p "$DEPLOY_PASSWORD"`.
-3. Триггер только на `push` в `main`.
+3. Триггер только на `push` в `master`.
 
 ## 6. Настроить GitHub Secrets
 
 GitHub -> Repository -> Settings -> Secrets and variables -> Actions -> Secrets:
 
-- `DEPLOY_HOST` = `vh434.timeweb.ru`
+- `DEPLOY_HOST` = `<VPS host или IP>`
 - `DEPLOY_PORT` = `22`
-- `DEPLOY_USER` = `wrcss`
+- `DEPLOY_USER` = `<SSH user>`
 - `DEPLOY_PASSWORD` = `<текущий SSH пароль>`
 
 Примечания:
@@ -109,19 +110,19 @@ GitHub -> Repository -> Settings -> Secrets and variables -> Actions -> Secrets:
 ## 7. Первый автодеплой через GitHub Actions
 
 1. Сделать commit.
-2. Выполнить `git push origin main`.
+2. Выполнить `git push origin master`.
 3. Открыть GitHub Actions -> workflow `Deploy Production`.
 4. Проверить, что прошли шаги:
 - `Install sshpass`
 - `Prepare changed files list`
 - `Ensure remote dirs`
-- `Upload changed files to /laravel`
-- `Upload changed files to /public_html`
+- `Upload changed files to Laravel src`
+- `Upload changed public files to public_html`
 - `Delete removed files on server`
 
-## 8. Как проходит каждое следующее обновление (push в `main`)
+## 8. Как проходит каждое следующее обновление (push в `master`)
 
-При каждом `push` в `main` workflow автоматически:
+При каждом `push` в `master` workflow автоматически:
 1. Считает разницу файлов между предыдущим и текущим commit.
 2. Загружает только измененные файлы в нужные директории.
 3. Удаляет на сервере файлы, удаленные в git.
@@ -139,7 +140,7 @@ GitHub -> Repository -> Settings -> Secrets and variables -> Actions -> Secrets:
 выполнить на сервере:
 
 ```bash
-cd /home/w/wrcss/x-bot2/src
+cd /var/www/x-bot.su/src
 /opt/php84/bin/php /opt/php84/bin/composer install --no-dev --optimize-autoloader
 /opt/php84/bin/php artisan migrate --force
 /opt/php84/bin/php artisan optimize:clear
@@ -153,7 +154,7 @@ cd /home/w/wrcss/x-bot2/src
 На сервере:
 
 ```bash
-cd /home/w/wrcss/x-bot2/src
+cd /var/www/x-bot.su/src
 /opt/php84/bin/php artisan about
 /opt/php84/bin/php artisan route:list | grep telegram
 ```

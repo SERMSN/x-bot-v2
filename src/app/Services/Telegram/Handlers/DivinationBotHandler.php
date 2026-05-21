@@ -60,7 +60,8 @@ class DivinationBotHandler extends WebhookHandler
             "slug" => "moon",
             "local_image" => "divination/cards/moon.jpg",
             "name" => "Луна",
-            "meaning" => "Карта интуиции, скрытых мотивов и внутреннего поиска.",
+            "meaning" =>
+                "Карта интуиции, скрытых мотивов и внутреннего поиска.",
             "description" =>
                 "Не все в ситуации лежит на поверхности. Полезно не спешить с выводами, прислушаться к ощущениям и проверить детали перед решением.",
         ],
@@ -68,7 +69,8 @@ class DivinationBotHandler extends WebhookHandler
             "slug" => "star",
             "local_image" => "divination/cards/star.jpg",
             "name" => "Звезда",
-            "meaning" => "Карта надежды, восстановления и спокойной уверенности.",
+            "meaning" =>
+                "Карта надежды, восстановления и спокойной уверенности.",
             "description" =>
                 "Даже если путь сейчас кажется длинным, направление выбрано верно. Сохраняйте ритм, потому что результаты появятся через последовательность, а не через рывок.",
         ],
@@ -92,7 +94,8 @@ class DivinationBotHandler extends WebhookHandler
             "slug" => "magician",
             "local_image" => "divination/cards/magician.jpg",
             "name" => "Маг",
-            "meaning" => "Карта инициативы, мастерства и запуска нового действия.",
+            "meaning" =>
+                "Карта инициативы, мастерства и запуска нового действия.",
             "description" =>
                 "У вас уже есть достаточно ресурсов, чтобы начать. Не ждите идеального момента: первый конкретный шаг даст больше, чем долгие сомнения.",
         ],
@@ -108,7 +111,8 @@ class DivinationBotHandler extends WebhookHandler
             "slug" => "strength",
             "local_image" => "divination/cards/strength.jpg",
             "name" => "Сила",
-            "meaning" => "Карта выдержки, самообладания и мягкой внутренней мощи.",
+            "meaning" =>
+                "Карта выдержки, самообладания и мягкой внутренней мощи.",
             "description" =>
                 "Сейчас побеждает не давление, а спокойная устойчивость. Если действовать без резкости, но настойчиво, ситуация постепенно повернется в вашу пользу.",
         ],
@@ -199,7 +203,8 @@ class DivinationBotHandler extends WebhookHandler
 
         switch ($action) {
             case "random_prediction":
-                $this->random_prediction(true);
+            case "random_prediction_new":
+                $this->random_prediction(false);
                 break;
             case "random_card_prediction":
                 $this->random_card_prediction(true);
@@ -238,7 +243,9 @@ class DivinationBotHandler extends WebhookHandler
         $path = $this->publicAssetPath((string) $card["local_image"]);
 
         if (!File::isFile($path)) {
-            throw new \RuntimeException("Divination card image is missing: {$path}");
+            throw new \RuntimeException(
+                "Divination card image is missing: {$path}",
+            );
         }
 
         return $path;
@@ -303,11 +310,9 @@ class DivinationBotHandler extends WebhookHandler
     {
         return Keyboard::make()
             ->buttons([
-                Button::make("🃏 Еще карта")->action(
-                    "random_card_prediction",
-                ),
+                Button::make("🃏 Еще карта")->action("random_card_prediction"),
                 Button::make("🔯 Перейти к предсказанию")->action(
-                    "random_prediction",
+                    "random_prediction_new",
                 ),
                 Button::make("🏠 На главную")->action("start"),
             ])
@@ -359,3 +364,4 @@ class DivinationBotHandler extends WebhookHandler
         return "";
     }
 }
+// edit

@@ -13,8 +13,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      REMOTE_LARAVEL_DIR: /home/w/wrcss/x-bot2/src
-      REMOTE_PUBLIC_DIR: /home/w/wrcss/x-bot2/public_html
+      REMOTE_LARAVEL_DIR: /var/www/x-bot.su/src
+      REMOTE_PUBLIC_DIR: /var/www/x-bot.su/public_html
 
     steps:
       - name: Checkout
@@ -106,7 +106,7 @@ jobs:
           sshpass -p "${DEPLOY_PASSWORD}" ssh -o StrictHostKeyChecking=no -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "mkdir -p '${REMOTE_LARAVEL_DIR}' '${REMOTE_PUBLIC_DIR}'"
 
-      - name: Upload changed files to /laravel
+      - name: Upload changed files to Laravel src
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST || vars.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || vars.DEPLOY_PORT }}
@@ -122,7 +122,7 @@ jobs:
             echo "No laravel files to upload"
           fi
 
-      - name: Upload changed files to /public_html
+      - name: Upload changed public files to public_html
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST || vars.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || vars.DEPLOY_PORT }}
