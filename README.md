@@ -96,7 +96,9 @@ docker-compose exec php php artisan migrate
 - `OPENWEATHER_API_KEY`
 - `OPENWEATHER_API_URL`
 - `WEATHER_NOTIFICATION_RUN_INTERVAL_MINUTES`
-- `VIN_API_DECODE_URL`
+- `VIN_API_BASE_URL`
+- `VIN_API_KEY`
+- `VIN_API_SECRET_KEY`
 
 ### Через таблицу `app_settings`
 Глобальные настройки интерфейса:
@@ -141,11 +143,13 @@ docker-compose exec php php artisan migrate
 Возможности:
 - `/start`, `/help`, `/vin`
 - проверка структуры VIN;
-- запрос к внешнему decode API;
+- запрос к Vincario VIN Decode API;
 - вывод марки, модели, года и других атрибутов.
 
 Зависимости:
-- `VIN_API_DECODE_URL`
+- `VIN_API_BASE_URL`, например `https://api.vincario.com/3.2`
+- `VIN_API_KEY`
+- `VIN_API_SECRET_KEY`
 
 ### Divination bot
 Возможности:

@@ -21,7 +21,11 @@ class BotSettingForm
                         "OpenWeather API URL",
                     BotSetting::KEY_WEATHER_NOTIFICATION_RUN_INTERVAL_MINUTES =>
                         "Проверка уведомлений: интервал в минутах",
-                    BotSetting::KEY_VIN_API_DECODE_URL => "VIN API decode URL",
+                    BotSetting::KEY_VIN_API_DECODE_URL =>
+                        "VIN API decode URL (legacy)",
+                    BotSetting::KEY_VIN_API_BASE_URL => "Vincario API base URL",
+                    BotSetting::KEY_VIN_API_KEY => "Vincario API key",
+                    BotSetting::KEY_VIN_API_SECRET_KEY => "Vincario secret key",
                 ])
                 ->searchable()
                 ->native(false)

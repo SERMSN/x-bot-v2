@@ -167,7 +167,7 @@ class VinBotHandler extends WebhookHandler
             $message .= "Год модели: *{$carData["model_year"]}*\n";
             $message .= "Тип ТС: *{$carData["vehicle_type"]}*\n";
             $message .= "Класс кузова: *{$carData["body_class"]}*\n";
-            $message .= "Двигатель: *{$carData["engine_cylinders"]} cyl / {$carData["engine_liters"]}L*\n";
+            $message .= "Двигатель: *{$carData["engine_cylinders"]} / {$carData["engine_liters"]}L*\n";
             $message .= "Топливо: *{$carData["fuel_type"]}*\n";
             $message .= "Страна сборки: *{$carData["plant_country"]}*\n";
             $message .= "Завод: *{$carData["plant_company"]}*";

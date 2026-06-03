@@ -15,6 +15,9 @@ class BotSetting extends Model
     public const KEY_OPENWEATHER_API_URL = "OPENWEATHER_API_URL";
     public const KEY_WEATHER_NOTIFICATION_RUN_INTERVAL_MINUTES = "WEATHER_NOTIFICATION_RUN_INTERVAL_MINUTES";
     public const KEY_VIN_API_DECODE_URL = "VIN_API_DECODE_URL";
+    public const KEY_VIN_API_BASE_URL = "VIN_API_BASE_URL";
+    public const KEY_VIN_API_KEY = "VIN_API_KEY";
+    public const KEY_VIN_API_SECRET_KEY = "VIN_API_SECRET_KEY";
 
     protected $table = "bot_settings";
 

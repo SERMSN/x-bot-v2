@@ -69,7 +69,7 @@ X-Bot v2 — Laravel 12 приложение для управления нес�
 Важно:
 - в `config/telegraph.php` кастомный webhook handler задан как `App\Services\Telegram\Handlers\Handler`;
 - модели Telegraph переопределены на `App\Models\TelegramBot` и `App\Models\TelegraphChat`;
-- реальные ключи для OpenWeather и URL VIN API ожидаются в таблице `bot_settings`, а не в `config/services.php`.
+- реальные ключи для OpenWeather и Vincario VIN API ожидаются в таблице `bot_settings`, а не в `config/services.php`.
 
 ## Структура проекта
 ```text
@@ -156,7 +156,10 @@ x-bot-v2/
   - `OPENWEATHER_API_KEY`
   - `OPENWEATHER_API_URL`
   - `WEATHER_NOTIFICATION_RUN_INTERVAL_MINUTES`
-  - `VIN_API_DECODE_URL`
+  - `VIN_API_BASE_URL`
+  - `VIN_API_KEY`
+  - `VIN_API_SECRET_KEY`
+  - `VIN_API_DECODE_URL` (legacy)
 
 ### `App\Models\AppSetting`
 - Таблица: `app_settings`
@@ -283,8 +286,10 @@ x-bot-v2/
   - локальное время города.
 
 ### `App\Services\Telegram\Services\VinService`
-- Декодирует VIN через внешний HTTP API
-- URL API берется из `bot_settings`
+- Декодирует VIN через Vincario VIN Decode API
+- Собирает URL формата `/3.2/{API_KEY}/{CONTROL_SUM}/decode/{VIN}.json`
+- `CONTROL_SUM` считается как первые 10 символов SHA1 от `VIN|decode|API_KEY|SECRET_KEY`
+- Base URL, API key и secret key берутся из `bot_settings`
 - Имеет кэширование, timeout и retry-настройки
 
 ### `App\Services\Telegram\ChatLogger`
@@ -390,6 +395,6 @@ x-bot-v2/
 - `config/services.php` сейчас не хранит OpenWeather настройки, несмотря на старую документацию.
 - Вебхук проектно идет через `TelegramWebhookController`, хотя в `telegraph.php` также указан handler.
 - Для корректной работы weather-бота на каждого бота должны быть заведены `OPENWEATHER_API_KEY` и `OPENWEATHER_API_URL` в `bot_settings`.
-- Для VIN-бота на каждого бота должен быть задан `VIN_API_DECODE_URL` в `bot_settings`.
+- Для VIN-бота на каждого бота должны быть заданы `VIN_API_BASE_URL`, `VIN_API_KEY` и `VIN_API_SECRET_KEY` в `bot_settings`.
 - Публичная страница и публичная Filament main-панель описывают три бота: погода, VIN и оракул.
 - В боте-оракуле есть два сценария: короткое предсказание и карта предсказания с обязательным локальным изображением и толкованием.
