@@ -163,30 +163,36 @@ class VinBotHandler extends WebhookHandler
             $message = $this->buildVinResultMessage($carData);
 
             if (($carData["error_code"] ?? "") !== "0") {
-                $message .= "\n\n⚠️ API сообщило: *{$carData["error_text"]}*";
+                $message .= "\n\n⚠️ API сообщило: <b>{$this->escapeHtml((string) $carData["error_text"])}</b>";
             }
         } catch (\Throwable $e) {
             Log::error("VIN API error", ["exception" => $e]);
-            $message = "❌ *Не удалось получить данные по VIN*\n\n";
+            $message = "❌ <b>Не удалось получить данные по VIN</b>\n\n";
             $message .= "Попробуйте позже или проверьте корректность VIN.";
         }
 
-        $this->chat
-            ->markdown($message)
-            ->keyboard(function ($keyboard) {
-                $keyboard->button("🔍 Проверить еще")->action("check_vin");
-                $keyboard->button("🏠 На главную")->action("start");
-                $keyboard->chunk(2);
-                return $keyboard;
-            })
-            ->send();
+        $messages = $this->splitLongMessage($message);
+        foreach ($messages as $index => $messagePart) {
+            $pendingMessage = $this->chat->html($messagePart);
+
+            if ($index === array_key_last($messages)) {
+                $pendingMessage->keyboard(function ($keyboard) {
+                    $keyboard->button("🔍 Проверить еще")->action("check_vin");
+                    $keyboard->button("🏠 На главную")->action("start");
+                    $keyboard->chunk(2);
+                    return $keyboard;
+                });
+            }
+
+            $pendingMessage->send();
+        }
 
         $this->logOutgoing($message, ["handler_action" => "process_vin"]);
     }
 
     private function buildVinResultMessage(array $carData): string
     {
-        $message = "✅ *Результат VIN-проверки*\n\n";
+        $message = "✅ <b>Результат VIN-проверки</b>\n\n";
         $sections = $carData["sections"] ?? [];
 
         if (!is_array($sections) || $sections === []) {
@@ -205,14 +211,15 @@ class VinBotHandler extends WebhookHandler
                     continue;
                 }
 
-                $lines[] = "{$label}: *{$this->escapeMarkdown($value)}*";
+                $lines[] =
+                    "{$this->escapeHtml((string) $label)}: <b>{$this->escapeHtml($value)}</b>";
             }
 
             if ($lines === []) {
                 continue;
             }
 
-            $message .= "*{$sectionTitle}*\n";
+            $message .= "<b>{$this->escapeHtml((string) $sectionTitle)}</b>\n";
             $message .= implode("\n", $lines) . "\n\n";
         }
 
@@ -247,23 +254,51 @@ class VinBotHandler extends WebhookHandler
                 continue;
             }
 
-            $lines[] = "{$label}: *{$this->escapeMarkdown($value)}*";
+            $lines[] =
+                "{$this->escapeHtml((string) $label)}: <b>{$this->escapeHtml($value)}</b>";
         }
 
         if ($lines === []) {
-            return "❌ *Не удалось разобрать данные по VIN*\n\nПопробуйте повторить запрос позже.";
+            return "❌ <b>Не удалось разобрать данные по VIN</b>\n\nПопробуйте повторить запрос позже.";
         }
 
-        return "✅ *Результат VIN-проверки*\n\n" . implode("\n", $lines);
+        return "✅ <b>Результат VIN-проверки</b>\n\n" . implode("\n", $lines);
     }
 
-    private function escapeMarkdown(string $value): string
+    private function splitLongMessage(string $message): array
     {
-        return str_replace(
-            ["\\", "*", "_", "`", "["],
-            ["\\\\", "\\*", "\\_", "\\`", "\\["],
-            $value,
-        );
+        $limit = 3500;
+        if (mb_strlen($message) <= $limit) {
+            return [$message];
+        }
+
+        $parts = [];
+        $current = "";
+
+        foreach (explode("\n\n", $message) as $block) {
+            $candidate = $current === "" ? $block : "{$current}\n\n{$block}";
+            if (mb_strlen($candidate) <= $limit) {
+                $current = $candidate;
+                continue;
+            }
+
+            if ($current !== "") {
+                $parts[] = $current;
+            }
+
+            $current = $block;
+        }
+
+        if ($current !== "") {
+            $parts[] = $current;
+        }
+
+        return $parts;
+    }
+
+    private function escapeHtml(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, "UTF-8");
     }
 
     public function handleUnknownCommand(Stringable $text): void
