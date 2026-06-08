@@ -148,6 +148,102 @@ class VinService
             "plant_company" => $this->value($values, "Manufacturer"),
             "error_code" => $this->errorCode($payload),
             "error_text" => $this->errorText($payload),
+            "sections" => $this->sections($values),
+        ];
+    }
+
+    private function sections(array $values): array
+    {
+        return [
+            "Основное" => [
+                "VIN" => $this->value($values, "VIN"),
+                "Марка" => $this->value($values, "Make"),
+                "Модель" => $this->value($values, "Model"),
+                "Год модели" => $this->value($values, "Model Year"),
+                "Тип ТС" => $this->value($values, "Product Type"),
+                "Кузов" => $this->value($values, "Body"),
+                "Привод" => $this->value($values, "Drive"),
+            ],
+            "Двигатель и трансмиссия" => [
+                "Двигатель" => $this->value($values, "Engine Type"),
+                "Объем двигателя" => $this->withValueUnit(
+                    $this->engineLiters($values),
+                    "л",
+                ),
+                "Объем двигателя, ccm" => $this->value(
+                    $values,
+                    "Engine Displacement (ccm)",
+                ),
+                "Производитель двигателя" => $this->value(
+                    $values,
+                    "Engine Manufacturer",
+                ),
+                "Крутящий момент" => $this->withUnit(
+                    $values,
+                    "Engine Torque (RPM)",
+                    "RPM",
+                ),
+                "Топливо" => $this->value($values, "Fuel Type - Primary"),
+                "Коробка" => $this->value($values, "Transmission"),
+                "Передач" => $this->value($values, "Number of Gears"),
+                "Экостандарт" => $this->value($values, "Emission Standard"),
+                "Расход смешанный" => $this->withUnit(
+                    $values,
+                    "Fuel Consumption Combined (l/100km)",
+                    "л/100 км",
+                ),
+                "CO2" => $this->withUnit($values, "CO2 Emission (g/km)", "г/км"),
+            ],
+            "Производитель" => [
+                "Производитель" => $this->value($values, "Manufacturer"),
+                "Адрес производителя" => $this->value(
+                    $values,
+                    "Manufacturer Address",
+                ),
+                "Страна сборки" => $this->value($values, "Plant Country"),
+            ],
+            "Кузов и размеры" => [
+                "Дверей" => $this->value($values, "Number of Doors"),
+                "Мест" => $this->value($values, "Number of Seats"),
+                "Колес" => $this->value($values, "Number Wheels"),
+                "Осей" => $this->value($values, "Number of Axles"),
+                "Колесная база" => $this->withUnit($values, "Wheelbase (mm)", "мм"),
+                "Высота" => $this->withUnit($values, "Height (mm)", "мм"),
+                "Длина" => $this->withUnit($values, "Length (mm)", "мм"),
+                "Ширина" => $this->withUnit($values, "Width (mm)", "мм"),
+                "Задний свес" => $this->withUnit($values, "Rear Overhang (mm)", "мм"),
+                "Колея передняя" => $this->withUnit($values, "Track Front (mm)", "мм"),
+                "Колея задняя" => $this->withUnit($values, "Track Rear (mm)", "мм"),
+            ],
+            "Масса и эксплуатация" => [
+                "Макс. скорость" => $this->withUnit($values, "Max Speed (km/h)", "км/ч"),
+                "Масса пустого" => $this->withUnit($values, "Weight Empty (kg)", "кг"),
+                "Макс. масса" => $this->withUnit($values, "Max Weight (kg)", "кг"),
+                "Макс. нагрузка на крышу" => $this->withUnit(
+                    $values,
+                    "Max roof load (kg)",
+                    "кг",
+                ),
+                "Прицеп без тормозов" => $this->withUnit(
+                    $values,
+                    "Permitted trailer load without brakes (kg)",
+                    "кг",
+                ),
+            ],
+            "Ходовая и оснащение" => [
+                "ABS" => $this->boolValue($values, "ABS"),
+                "Передние тормоза" => $this->value($values, "Front Brakes"),
+                "Тормозная система" => $this->value($values, "Brake System"),
+                "Подвеска" => $this->value($values, "Suspension"),
+                "Рулевое управление" => $this->value($values, "Steering Type"),
+                "Диски" => $this->value($values, "Wheel Rims Size"),
+                "Шины" => $this->value($values, "Wheel Size"),
+            ],
+            "VIN служебные данные" => [
+                "Vehicle ID" => $this->value($values, "Vehicle ID"),
+                "Контрольная цифра" => $this->value($values, "Check Digit"),
+                "Серийный номер" => $this->value($values, "Sequential Number"),
+            ],
         ];
     }
 
@@ -190,6 +286,30 @@ class VinService
     {
         $value = trim((string) ($values[$key] ?? ""));
         return $value !== "" ? $value : $default;
+    }
+
+    private function withUnit(array $values, string $key, string $unit): string
+    {
+        return $this->withValueUnit($this->value($values, $key), $unit);
+    }
+
+    private function withValueUnit(string $value, string $unit): string
+    {
+        return $value !== "-" ? "{$value} {$unit}" : "-";
+    }
+
+    private function boolValue(array $values, string $key): string
+    {
+        $value = $this->value($values, $key);
+        if ($value === "1") {
+            return "Да";
+        }
+
+        if ($value === "0") {
+            return "Нет";
+        }
+
+        return $value;
     }
 
     private function errorCode(array $payload): string

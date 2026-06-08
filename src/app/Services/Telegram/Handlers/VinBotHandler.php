@@ -160,17 +160,7 @@ class VinBotHandler extends WebhookHandler
             $vinService = app(VinService::class);
             $carData = $vinService->decode((int) $this->bot->id, $vin);
 
-            $message = "✅ *Результат VIN-проверки*\n\n";
-            $message .= "VIN: *{$carData["vin"]}*\n";
-            $message .= "Марка: *{$carData["make"]}*\n";
-            $message .= "Модель: *{$carData["model"]}*\n";
-            $message .= "Год модели: *{$carData["model_year"]}*\n";
-            $message .= "Тип ТС: *{$carData["vehicle_type"]}*\n";
-            $message .= "Класс кузова: *{$carData["body_class"]}*\n";
-            $message .= "Двигатель: *{$carData["engine_cylinders"]} / {$carData["engine_liters"]}L*\n";
-            $message .= "Топливо: *{$carData["fuel_type"]}*\n";
-            $message .= "Страна сборки: *{$carData["plant_country"]}*\n";
-            $message .= "Завод: *{$carData["plant_company"]}*";
+            $message = $this->buildVinResultMessage($carData);
 
             if (($carData["error_code"] ?? "") !== "0") {
                 $message .= "\n\n⚠️ API сообщило: *{$carData["error_text"]}*";
@@ -192,6 +182,50 @@ class VinBotHandler extends WebhookHandler
             ->send();
 
         $this->logOutgoing($message, ["handler_action" => "process_vin"]);
+    }
+
+    private function buildVinResultMessage(array $carData): string
+    {
+        $message = "✅ *Результат VIN-проверки*\n\n";
+        $sections = $carData["sections"] ?? [];
+
+        if (!is_array($sections) || $sections === []) {
+            return $message;
+        }
+
+        foreach ($sections as $sectionTitle => $fields) {
+            if (!is_array($fields)) {
+                continue;
+            }
+
+            $lines = [];
+            foreach ($fields as $label => $value) {
+                $value = trim((string) $value);
+                if ($value === "" || $value === "-") {
+                    continue;
+                }
+
+                $lines[] = "{$label}: *{$this->escapeMarkdown($value)}*";
+            }
+
+            if ($lines === []) {
+                continue;
+            }
+
+            $message .= "*{$sectionTitle}*\n";
+            $message .= implode("\n", $lines) . "\n\n";
+        }
+
+        return trim($message);
+    }
+
+    private function escapeMarkdown(string $value): string
+    {
+        return str_replace(
+            ["\\", "*", "_", "`", "["],
+            ["\\\\", "\\*", "\\_", "\\`", "\\["],
+            $value,
+        );
     }
 
     public function handleUnknownCommand(Stringable $text): void
