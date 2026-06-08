@@ -190,7 +190,7 @@ class VinBotHandler extends WebhookHandler
         $sections = $carData["sections"] ?? [];
 
         if (!is_array($sections) || $sections === []) {
-            return $message;
+            return $this->buildLegacyVinResultMessage($carData);
         }
 
         foreach ($sections as $sectionTitle => $fields) {
@@ -217,6 +217,44 @@ class VinBotHandler extends WebhookHandler
         }
 
         return trim($message);
+    }
+
+    private function buildLegacyVinResultMessage(array $carData): string
+    {
+        $fields = [
+            "VIN" => $carData["vin"] ?? "-",
+            "Марка" => $carData["make"] ?? "-",
+            "Модель" => $carData["model"] ?? "-",
+            "Год модели" => $carData["model_year"] ?? "-",
+            "Тип ТС" => $carData["vehicle_type"] ?? "-",
+            "Класс кузова" => $carData["body_class"] ?? "-",
+            "Двигатель" =>
+                trim(
+                    (string) ($carData["engine_cylinders"] ?? "-") .
+                        " / " .
+                        (string) ($carData["engine_liters"] ?? "-") .
+                        "L",
+                ),
+            "Топливо" => $carData["fuel_type"] ?? "-",
+            "Страна сборки" => $carData["plant_country"] ?? "-",
+            "Завод" => $carData["plant_company"] ?? "-",
+        ];
+
+        $lines = [];
+        foreach ($fields as $label => $value) {
+            $value = trim((string) $value);
+            if ($value === "" || $value === "-" || $value === "- / -L") {
+                continue;
+            }
+
+            $lines[] = "{$label}: *{$this->escapeMarkdown($value)}*";
+        }
+
+        if ($lines === []) {
+            return "❌ *Не удалось разобрать данные по VIN*\n\nПопробуйте повторить запрос позже.";
+        }
+
+        return "✅ *Результат VIN-проверки*\n\n" . implode("\n", $lines);
     }
 
     private function escapeMarkdown(string $value): string

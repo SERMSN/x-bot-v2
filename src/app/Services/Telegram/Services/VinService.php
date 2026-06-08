@@ -15,7 +15,7 @@ class VinService
     public function decode(int $botId, string $vin): array
     {
         $vin = strtoupper($vin);
-        $cacheKey = "vin_decode_{$botId}_{$vin}";
+        $cacheKey = "vin_decode_vincario_v2_{$botId}_{$vin}";
         $ttl = (int) config("vin.cache.ttl_minutes", 1440);
 
         return Cache::remember(
