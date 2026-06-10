@@ -146,6 +146,7 @@ class VinService
             "fuel_type" => $this->value($values, "Fuel Type - Primary"),
             "plant_country" => $this->value($values, "Plant Country"),
             "plant_company" => $this->value($values, "Manufacturer"),
+            "make_logo_url" => $this->value($values, "Make Logo"),
             "error_code" => $this->errorCode($payload),
             "error_text" => $this->errorText($payload),
             "sections" => $this->sections($values),

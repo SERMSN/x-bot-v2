@@ -45,7 +45,16 @@ class VinBotHandler extends WebhookHandler
         $message .= "/vin — Ввести VIN\n\n";
         $message .= "Формат VIN: 17 символов (A-Z, 0-9, без I/O/Q).\n";
         $message .= "Пример: *JHMCM56557C404453*.\n";
-        $message .= "Для отмены отправьте: *Отмена*.";
+        $message .= "Для отмены отправьте: *Отмена*.\n\n";
+        $message .= "📋 *Что можно получить по VIN*\n";
+        $message .= "• Основное: VIN, марка, модель, год, тип ТС, кузов, привод.\n";
+        $message .= "• Двигатель и трансмиссия: тип двигателя, объем, производитель, топливо, коробка, число передач, экостандарт, расход, CO2.\n";
+        $message .= "• Производитель: название, адрес, страна сборки.\n";
+        $message .= "• Кузов и размеры: двери, места, колеса, оси, база, высота, длина, ширина, колея.\n";
+        $message .= "• Масса и эксплуатация: скорость, масса, нагрузка на крышу, разрешенная масса прицепа.\n";
+        $message .= "• Ходовая и оснащение: ABS, тормоза, подвеска, рулевое управление, диски, шины.\n";
+        $message .= "• VIN-данные: Vehicle ID, контрольная цифра, серийный номер.\n\n";
+        $message .= "Фактический набор зависит от того, какие поля Vincario вернет по конкретному VIN.";
 
         $this->chat
             ->markdown($message)
@@ -161,6 +170,7 @@ class VinBotHandler extends WebhookHandler
             $carData = $vinService->decode((int) $this->bot->id, $vin);
 
             $message = $this->buildVinResultMessage($carData);
+            $this->sendMakeLogo($carData);
 
             if (($carData["error_code"] ?? "") !== "0") {
                 $message .= "\n\n⚠️ API сообщило: <b>{$this->escapeHtml((string) $carData["error_text"])}</b>";
@@ -188,6 +198,28 @@ class VinBotHandler extends WebhookHandler
         }
 
         $this->logOutgoing($message, ["handler_action" => "process_vin"]);
+    }
+
+    private function sendMakeLogo(array $carData): void
+    {
+        $logoUrl = trim((string) ($carData["make_logo_url"] ?? ""));
+        if ($logoUrl === "" || $logoUrl === "-") {
+            return;
+        }
+
+        $make = trim((string) ($carData["make"] ?? ""));
+        $model = trim((string) ($carData["model"] ?? ""));
+        $caption = trim("{$make} {$model}");
+        $caption = $caption !== "" ? "🚗 <b>{$this->escapeHtml($caption)}</b>" : "🚗 <b>VIN отчет</b>";
+
+        try {
+            $this->chat->photo($logoUrl)->html($caption)->send();
+        } catch (\Throwable $e) {
+            Log::warning("VIN make logo send failed", [
+                "make_logo_url" => $logoUrl,
+                "error" => $e->getMessage(),
+            ]);
+        }
     }
 
     private function buildVinResultMessage(array $carData): string
