@@ -170,7 +170,6 @@ class VinBotHandler extends WebhookHandler
             $carData = $vinService->decode((int) $this->bot->id, $vin);
 
             $message = $this->buildVinResultMessage($carData);
-            $this->sendMakeLogo($carData);
 
             if (($carData["error_code"] ?? "") !== "0") {
                 $message .= "\n\n⚠️ API сообщило: <b>{$this->escapeHtml((string) $carData["error_text"])}</b>";
@@ -200,31 +199,16 @@ class VinBotHandler extends WebhookHandler
         $this->logOutgoing($message, ["handler_action" => "process_vin"]);
     }
 
-    private function sendMakeLogo(array $carData): void
-    {
-        $logoUrl = trim((string) ($carData["make_logo_url"] ?? ""));
-        if ($logoUrl === "" || $logoUrl === "-") {
-            return;
-        }
-
-        $make = trim((string) ($carData["make"] ?? ""));
-        $model = trim((string) ($carData["model"] ?? ""));
-        $caption = trim("{$make} {$model}");
-        $caption = $caption !== "" ? "🚗 <b>{$this->escapeHtml($caption)}</b>" : "🚗 <b>VIN отчет</b>";
-
-        try {
-            $this->chat->photo($logoUrl)->html($caption)->send();
-        } catch (\Throwable $e) {
-            Log::warning("VIN make logo send failed", [
-                "make_logo_url" => $logoUrl,
-                "error" => $e->getMessage(),
-            ]);
-        }
-    }
-
     private function buildVinResultMessage(array $carData): string
     {
         $message = "✅ <b>Результат VIN-проверки</b>\n\n";
+        $logoUrl = trim((string) ($carData["make_logo_url"] ?? ""));
+        if ($logoUrl !== "" && $logoUrl !== "-") {
+            $safeLogoUrl = $this->escapeHtml($logoUrl);
+            $message .= "Логотип марки: <a href=\"{$safeLogoUrl}\">открыть</a>\n";
+            $message .= "URL логотипа: {$safeLogoUrl}\n\n";
+        }
+
         $sections = $carData["sections"] ?? [];
 
         if (!is_array($sections) || $sections === []) {
