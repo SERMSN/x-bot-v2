@@ -7,6 +7,7 @@
 - VIN-бот с декодированием VIN через внешний API;
 - бот-предсказатель;
 - админ-панель Filament для управления ботами, чатами, настройками и логами;
+- универсальные тарифы подписок для ботов с ценой в рублях;
 - логирование входящих и исходящих сообщений в БД;
 - планировщик погодных уведомлений;
 - Docker Compose для локального запуска;
@@ -113,12 +114,14 @@ docker-compose exec php php artisan migrate
 - `App\Models\BotSetting`
 - `App\Models\AppSetting`
 - `App\Models\ChatLog`
+- `App\Models\SubscriptionPlan`
 - `App\Models\User`
 
 ### Filament ресурсы
 - `TelegramBotResource`
 - `TelegraphChatResource`
 - `BotSettingResource`
+- `SubscriptionPlanResource`
 - `AppSettingResource`
 - `ChatLogResource`
 
@@ -142,9 +145,12 @@ docker-compose exec php php artisan migrate
 ### VIN bot
 Возможности:
 - `/start`, `/help`, `/vin`
+- `/subscription`
 - проверка структуры VIN;
 - запрос к Vincario VIN Decode API;
-- вывод марки, модели, года и других атрибутов.
+- бесплатный режим показывает только `VIN`, `Марка`, `Модель`, `Год модели`;
+- полный отчет доступен по счетчику полных отчетов на чат;
+- подписка пока заглушка с кнопками пополнения на `1`, `5`, `10`, `20`, `50` отчетов.
 
 Зависимости:
 - `VIN_API_BASE_URL`, например `https://api.vincario.com/3.2`

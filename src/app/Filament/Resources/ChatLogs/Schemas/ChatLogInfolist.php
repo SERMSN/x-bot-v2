@@ -16,8 +16,16 @@ class ChatLogInfolist
             TextEntry::make("bot.name")
                 ->label("Бот")
                 ->placeholder("-"),
-            TextEntry::make("chat.chat_id")
+            TextEntry::make("chat.name")
                 ->label("Чат")
+                ->formatStateUsing(function ($state, $record) {
+                    $name = trim((string) ($state ?? ""));
+                    if ($name !== "") {
+                        return $name;
+                    }
+
+                    return trim((string) ($record?->chat?->chat_id ?? "-")) ?: "-";
+                })
                 ->placeholder("-"),
             TextEntry::make("direction")
                 ->label("Направление")

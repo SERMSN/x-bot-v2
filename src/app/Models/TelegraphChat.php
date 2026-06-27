@@ -15,6 +15,7 @@ class TelegraphChat extends BaseTelegraphChat
         "chat_id",
         "name",
         "telegraph_bot_id",
+        "full_reports_remaining",
         "weather_city",
         "weather_city_lat",
         "weather_city_lon",
@@ -32,6 +33,10 @@ class TelegraphChat extends BaseTelegraphChat
         "last_weather_query_lon",
     ];
 
+    protected $casts = [
+        "full_reports_remaining" => "integer",
+    ];
+
     public function bot(): BelongsTo
     {
         return $this->belongsTo(TelegramBot::class, "telegraph_bot_id");
@@ -40,5 +45,10 @@ class TelegraphChat extends BaseTelegraphChat
     public function logs(): HasMany
     {
         return $this->hasMany(ChatLog::class, "telegraph_chat_id");
+    }
+
+    public function subscriptionTransactions(): HasMany
+    {
+        return $this->hasMany(SubscriptionTransaction::class, "telegraph_chat_id");
     }
 }

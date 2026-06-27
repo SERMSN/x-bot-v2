@@ -25,9 +25,17 @@ class ChatLogsTable
                     ->searchable()
                     ->sortable()
                     ->placeholder("-"),
-                TextColumn::make("chat.chat_id")
+                TextColumn::make("chat.name")
                     ->label("Чат")
                     ->searchable()
+                    ->formatStateUsing(function ($state, $record) {
+                        $name = trim((string) ($state ?? ""));
+                        if ($name !== "") {
+                            return $name;
+                        }
+
+                        return trim((string) ($record?->chat?->chat_id ?? "-")) ?: "-";
+                    })
                     ->placeholder("-"),
                 TextColumn::make("direction")
                     ->label("Направление")
@@ -57,7 +65,7 @@ class ChatLogsTable
                     ->relationship("bot", "name"),
                 SelectFilter::make("telegraph_chat_id")
                     ->label("Чат")
-                    ->relationship("chat", "chat_id"),
+                    ->relationship("chat", "name"),
                 SelectFilter::make("direction")
                     ->label("Направление")
                     ->options([

@@ -70,6 +70,9 @@ class AdminPanelProvider extends PanelProvider
                 NavigationGroup::make("Настройки")->icon(
                     "heroicon-o-cog-8-tooth",
                 ),
+                NavigationGroup::make("Подписки")->icon(
+                    "heroicon-o-credit-card",
+                ),
             ])
             ->middleware([
                 EncryptCookies::class,

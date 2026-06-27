@@ -121,6 +121,19 @@ x-bot-v2/
 - Связи:
   - `hasMany(BotSetting::class)`
   - `hasMany(ChatLog::class)`
+  - `hasMany(SubscriptionPlan::class)`
+
+### `App\Models\SubscriptionPlan`
+- Таблица: `subscription_plans`
+- Назначение: универсальные тарифные планы для любого бота
+- Поля:
+  - `telegraph_bot_id` - бот, к которому относится план, или `null` для общего плана
+  - `name`
+  - `report_count`
+  - `price_rub`
+  - `description`
+  - `is_active`
+  - `sort_order`
 
 ### `App\Models\TelegraphChat`
 - Наследуется от `DefStudio\Telegraph\Models\TelegraphChat`
@@ -129,6 +142,8 @@ x-bot-v2/
   - `chat_id`
   - `name`
   - `telegraph_bot_id`
+- Дополнительное поле для VIN-бота:
+  - `full_reports_remaining` - счетчик полных отчетов на чат
 - Погодные поля:
   - `weather_city`
   - `weather_city_lat`
@@ -234,11 +249,17 @@ x-bot-v2/
   - `/start`
   - `/help`
   - `/vin`
+  - `/subscription`
 - Возможности:
   - проверка формата VIN;
   - нормализация ввода;
   - запрос к внешнему VIN API через `VinService`;
-  - вывод основных данных автомобиля;
+  - бесплатный режим показывает только `VIN`, `Марка`, `Модель`, `Год модели`;
+  - остальные поля маскируются `**********`;
+  - полный отчет доступен по счетчику `full_reports_remaining` на чат;
+  - краткий отчет содержит кнопку перехода в раздел подписки;
+  - раздел подписки пока заглушка с кнопками пополнения на `1`, `5`, `10`, `20`, `50` отчетов;
+  - списание полного отчета логируется в `Log::info`;
   - обработка ошибок API.
 
 ### `App\Services\Telegram\Handlers\DivinationBotHandler`
@@ -348,6 +369,7 @@ x-bot-v2/
 - `TelegraphChatResource` — просмотр чатов
 - `ChatLogResource` — просмотр логов чатов
 - `BotSettingResource` — CRUD настроек конкретных ботов
+- `SubscriptionPlanResource` — CRUD универсальных подписок для ботов
 - `AppSettingResource` — управление глобальными настройками интерфейса
 
 ## Миграции БД
@@ -363,6 +385,7 @@ x-bot-v2/
 - `telegraph_bots`
 - `telegraph_chats`
 - `bot_settings`
+- `subscription_plans`
 - `chat_logs`
 - `app_settings`
 
@@ -370,6 +393,7 @@ x-bot-v2/
 - создание ботов и чатов Telegraph;
 - добавление `handler_class`, `webhook_url`, `settings` в `telegraph_bots`;
 - создание `bot_settings` и исправление поля `volue` -> `value`;
+- создание `subscription_plans` для универсальных тарифов ботов;
 - создание `chat_logs`;
 - создание `app_settings`;
 - расширение `telegraph_chats` погодными настройками, координатами и уведомлениями.

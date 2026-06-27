@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\TelegramBots\Tables;
 
+use App\Filament\Resources\TelegraphChats\TelegraphChatResource;
+use App\Filament\Resources\SubscriptionTransactions\SubscriptionTransactionResource;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -49,7 +51,36 @@ class TelegramBotsTable
                 TextColumn::make("chats_count")
                     ->label("Чаты")
                     ->counts("chats")
-                    ->sortable(),
+                    ->sortable()
+                    ->url(function ($record) {
+                        $baseUrl = TelegraphChatResource::getUrl("index");
+
+                        return $baseUrl .
+                            "?" .
+                            http_build_query([
+                                "filters" => [
+                                    "telegraph_bot_id" => [
+                                        "value" => $record->id,
+                                    ],
+                                ],
+                            ]);
+                    }),
+                TextColumn::make("id")
+                    ->label("История подписок")
+                    ->formatStateUsing(fn ($state) => "Открыть")
+                    ->url(function ($record) {
+                        $baseUrl = SubscriptionTransactionResource::getUrl("index");
+
+                        return $baseUrl .
+                            "?" .
+                            http_build_query([
+                                "filters" => [
+                                    "telegraph_bot_id" => [
+                                        "value" => $record->id,
+                                    ],
+                                ],
+                            ]);
+                    }),
                 /*
                 TextColumn::make('created_at')
                     ->label('Создан')
