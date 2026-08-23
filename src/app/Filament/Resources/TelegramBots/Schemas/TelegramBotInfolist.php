@@ -11,7 +11,8 @@ class TelegramBotInfolist
     {
         return $schema
             ->components([
-                TextEntry::make('token'),
+                TextEntry::make('token')
+                    ->formatStateUsing(fn ($state) => self::maskToken((string) $state)),
                 TextEntry::make('name')
                     ->placeholder('-'),
                 TextEntry::make('created_at')
@@ -21,5 +22,14 @@ class TelegramBotInfolist
                     ->dateTime()
                     ->placeholder('-'),
             ]);
+    }
+
+    private static function maskToken(string $token): string
+    {
+        if ($token === "") {
+            return "";
+        }
+
+        return substr($token, 0, 6) . "..." . substr($token, -4);
     }
 }

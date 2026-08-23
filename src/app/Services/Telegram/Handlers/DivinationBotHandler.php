@@ -2,6 +2,7 @@
 
 namespace App\Services\Telegram\Handlers;
 
+use App\Services\Telegram\Support\CallbackAction;
 use DefStudio\Telegraph\Handlers\WebhookHandler;
 use DefStudio\Telegraph\Keyboard\Button;
 use DefStudio\Telegraph\Keyboard\Keyboard;
@@ -199,7 +200,7 @@ class DivinationBotHandler extends WebhookHandler
             return;
         }
 
-        $action = $this->extractActionFromJson($callbackData);
+        $action = CallbackAction::parse($callbackData);
 
         switch ($action) {
             case "random_prediction":
@@ -253,10 +254,12 @@ class DivinationBotHandler extends WebhookHandler
 
     private function publicAssetPath(string $relativePath): string
     {
-        $basePath = rtrim(
-            (string) env("PUBLIC_ASSETS_PATH", public_path()),
-            "/",
-        );
+        $basePath = (string) env("PUBLIC_ASSETS_PATH");
+        if (trim($basePath) === "") {
+            $basePath = public_path();
+        }
+
+        $basePath = rtrim($basePath, "/");
 
         return $basePath . "/" . trim($relativePath, "/");
     }
@@ -325,43 +328,4 @@ class DivinationBotHandler extends WebhookHandler
             $this->bot->replyWebhook($this->callbackQueryId, $message)->send();
         }
     }
-
-    private function extractActionFromJson(mixed $data): string
-    {
-        if (is_object($data) && method_exists($data, "get")) {
-            try {
-                $action = $data->get("action");
-                if (is_string($action) && $action !== "") {
-                    return $action;
-                }
-            } catch (\Throwable) {
-                return "";
-            }
-        }
-
-        if (is_array($data) && isset($data["action"])) {
-            return (string) $data["action"];
-        }
-
-        if (is_string($data)) {
-            $json = trim($data);
-            if (str_starts_with($json, "{")) {
-                $decoded = json_decode($json, true);
-                if (is_array($decoded) && isset($decoded["action"])) {
-                    return (string) $decoded["action"];
-                }
-            }
-
-            $action = str_replace('{"action":"', "", $json);
-            $action = str_replace('"}', "", $action);
-            $action = trim($action, '"\'');
-
-            if ($action !== "") {
-                return $action;
-            }
-        }
-
-        return "";
-    }
 }
-// edit 2

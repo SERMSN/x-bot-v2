@@ -40,13 +40,10 @@ class TelegramBotsTable
                 TextColumn::make("token")
                     ->label("Токен")
                     ->searchable()
-                    //->limit(15)
+                    ->formatStateUsing(fn ($state) => self::maskToken((string) $state))
                     ->tooltip(function ($record) {
-                        return "Нажмите, чтобы скопировать";
-                    })
-                    ->copyable()
-                    ->copyMessage("Токен скопирован")
-                    ->copyMessageDuration(1500),
+                        return "Токен скрыт в списке";
+                    }),
 
                 TextColumn::make("chats_count")
                     ->label("Чаты")
@@ -168,5 +165,14 @@ class TelegramBotsTable
                     DeleteBulkAction::make(),
                 ]),
             ]);*/
+    }
+
+    private static function maskToken(string $token): string
+    {
+        if ($token === "") {
+            return "";
+        }
+
+        return substr($token, 0, 6) . "..." . substr($token, -4);
     }
 }

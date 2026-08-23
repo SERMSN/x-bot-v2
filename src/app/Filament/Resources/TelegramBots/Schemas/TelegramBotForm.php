@@ -17,6 +17,8 @@ class TelegramBotForm
             Section::make("Основная информация")->schema([
                 TextInput::make("token")
                     ->label("Токен бота")
+                    ->password()
+                    ->revealable()
                     ->required()
                     ->maxLength(255),
                 TextInput::make("name")

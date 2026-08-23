@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use DefStudio\Telegraph\Models\TelegraphBot;
-use DefStudio\Telegraph\Telegraph;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
@@ -38,7 +37,7 @@ class TelegramWebhookController extends Controller
                 $request->input("callback_query.from.id");
 
             Log::info("📨 Входящий вебхук от Telegram", [
-                "token" => substr($token, 0, 10) . "...",
+                "token_hash" => substr(sha1($token), 0, 12),
                 "update_id" => $updateId,
                 "chat_id" => $chatId,
                 "from_id" => $fromId,
@@ -47,7 +46,9 @@ class TelegramWebhookController extends Controller
             $bot = TelegraphBot::where("token", $token)->first();
 
             if (!$bot) {
-                Log::error("❌ Бот не найден", ["token" => $token]);
+                Log::error("❌ Бот не найден", [
+                    "token_hash" => substr(sha1($token), 0, 12),
+                ]);
                 return response()->json(["error" => "Bot not found"], 404);
             }
 

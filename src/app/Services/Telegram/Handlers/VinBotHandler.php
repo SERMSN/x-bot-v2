@@ -2,43 +2,32 @@
 
 namespace App\Services\Telegram\Handlers;
 
-use App\Models\SubscriptionPlan;
-use App\Models\SubscriptionTransaction;
-use App\Services\Telegram\ChatLogger;
+use App\Services\Telegram\Messages\VinMessageBuilder;
+use App\Services\Telegram\Services\ReportBalanceService;
+use App\Services\Telegram\Services\VinSubscriptionService;
+use App\Services\Telegram\Support\BotCommandRouter;
+use App\Services\Telegram\Support\BotContext;
+use App\Services\Telegram\Support\CallbackAction;
+use App\Services\Telegram\Support\TelegramResponder;
 use DefStudio\Telegraph\Handlers\WebhookHandler;
 use Illuminate\Support\Stringable;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
-use DefStudio\Telegraph\Keyboard\Button;
-use DefStudio\Telegraph\Keyboard\Keyboard;
 use App\Services\Telegram\Services\VinService;
 
 class VinBotHandler extends WebhookHandler
 {
     private const CANCEL_KEYWORDS = ["отмена", "cancel", "stop", "выход"];
-    private const FREE_VISIBLE_FIELDS = ["VIN", "Марка", "Модель", "Год модели"];
-    private const MASK_VALUE = "**********";
 
     public function start(): void
     {
-        $message = "🚗 *VIN-бот*\n\n";
-        $message .= "Действие: проверка VIN.\n";
-        $message .= "Подсказка: нажмите кнопку и отправьте VIN из 17 символов.";
+        $message = $this->messages()->startText();
 
         $this->chat
             ->markdown($message)
             ->removeReplyKeyboard()
-            ->keyboard(
-                Keyboard::make()
-                    ->buttons([
-                        Button::make("🔍 Проверить VIN")->action("check_vin"),
-                        Button::make("❓ Помощь")->action("help"),
-                        Button::make("💳 Подписка")->action("subscription"),
-                    ])
-                    ->chunk(2),
-            )
+            ->keyboard($this->messages()->mainMenuKeyboard())
             ->send();
 
         $this->logOutgoing($message, ["handler_action" => "start"]);
@@ -46,34 +35,11 @@ class VinBotHandler extends WebhookHandler
 
     public function help(): void
     {
-        $message = "📚 *Помощь*\n\n";
-        $message .= "Команды:\n";
-        $message .= "/start — Главное меню\n";
-        $message .= "/help — Справка\n";
-        $message .= "/vin — Ввести VIN\n";
-        $message .= "/subscription — Подписка\n\n";
-        $message .= "Формат VIN: 17 символов (A-Z, 0-9, без I/O/Q).\n";
-        $message .= "Пример: *JHMCM56557C404453*.\n";
-        $message .= "Для отмены отправьте: *Отмена*.\n\n";
-        $message .= "📋 *Что можно получить по VIN*\n";
-        $message .= "• Основное: VIN, марка, модель, год, тип ТС, кузов, привод.\n";
-        $message .= "• Двигатель и трансмиссия: тип двигателя, объем, производитель, топливо, коробка, число передач, экостандарт, расход, CO2.\n";
-        $message .= "• Производитель: название, адрес, страна сборки.\n";
-        $message .= "• Кузов и размеры: двери, места, колеса, оси, база, высота, длина, ширина, колея.\n";
-        $message .= "• Масса и эксплуатация: скорость, масса, нагрузка на крышу, разрешенная масса прицепа.\n";
-        $message .= "• Ходовая и оснащение: ABS, тормоза, подвеска, рулевое управление, диски, шины.\n";
-        $message .= "• VIN-данные: Vehicle ID, контрольная цифра, серийный номер.\n\n";
-        $message .= "Фактический набор зависит от того, какие поля Vincario вернет по конкретному VIN.\n\n";
-        $message .= "Подписка: /subscription.";
+        $message = $this->messages()->helpText();
 
         $this->chat
             ->markdown($message)
-            ->keyboard(function ($keyboard) {
-                $keyboard->button("🔍 Проверить VIN")->action("check_vin");
-                $keyboard->button("🏠 На главную")->action("start");
-                $keyboard->chunk(2);
-                return $keyboard;
-            })
+            ->keyboard($this->messages()->helpKeyboard())
             ->send();
 
         $this->logOutgoing($message, ["handler_action" => "help"]);
@@ -86,17 +52,13 @@ class VinBotHandler extends WebhookHandler
 
     public function subscription(): void
     {
-        $remaining = $this->getFullReportsRemaining();
-        $plans = $this->getSubscriptionPlans();
-
-        $message = "💳 <b>Подписка</b>\n\n";
-        $message .= "Действие: пополнение полного отчета.\n";
-        $message .= "Осталось полных отчетов: <b>{$remaining}</b>\n";
-        $message .= "Подсказка: выберите пакет ниже. Платежная часть пока заглушка.";
+        $remaining = $this->subscriptions()->getFullReportsRemaining($this->chat);
+        $plans = $this->subscriptions()->getSubscriptionPlans((int) $this->bot->id);
+        $message = $this->messages()->subscriptionText($remaining);
 
         $this->chat
             ->html($message)
-            ->keyboard($this->subscriptionKeyboard($plans))
+            ->keyboard($this->messages()->subscriptionKeyboard($plans))
             ->send();
 
         $this->logOutgoing($message, ["handler_action" => "subscription"]);
@@ -109,17 +71,11 @@ class VinBotHandler extends WebhookHandler
 
     public function promptVinInput(): void
     {
-        $message = "🚗 *Проверка VIN-номера*\n\n";
-        $message .= "Действие: отправьте VIN.\n";
-        $message .= "Подсказка: 17 символов, пример *JHMCM56557C404453*.\n";
-        $message .= "Для отмены отправьте: *Отмена*.";
+        $message = $this->messages()->promptVinInputText();
 
         $this->chat
             ->markdown($message)
-            ->keyboard(function ($keyboard) {
-                $keyboard->button("🏠 На главную")->action("start");
-                return $keyboard;
-            })
+            ->keyboard($this->messages()->promptVinKeyboard())
             ->send();
 
         $this->logOutgoing($message, ["handler_action" => "prompt_vin_input"]);
@@ -142,18 +98,14 @@ class VinBotHandler extends WebhookHandler
         if ($this->isValidVin($vin)) {
             $this->processVin($vin);
         } else {
+            $message = $this->messages()->invalidVinText();
+
             $this->chat
-                ->markdown(
-                    "❌ *Некорректный VIN*\n\nДействие: введите VIN повторно.\nПодсказка: используйте 17 символов без I/O/Q.",
-                )
-                ->keyboard(function ($keyboard) {
-                    $keyboard->button("🔍 Проверить VIN")->action("check_vin");
-                    $keyboard->button("❓ Помощь")->action("help");
-                    $keyboard->chunk(2);
-                    return $keyboard;
-                })
+                ->markdown($message)
+                ->keyboard($this->messages()->invalidVinKeyboard())
                 ->send();
-            $this->logOutgoing("❌ *Некорректный VIN*", [
+
+            $this->logOutgoing($message, [
                 "handler_action" => "invalid_vin",
                 "is_error" => true,
             ]);
@@ -170,22 +122,17 @@ class VinBotHandler extends WebhookHandler
             return;
         }
 
-        $action = $this->extractActionFromJson($callbackData);
+        $action = CallbackAction::parse($callbackData);
 
-        switch ($action) {
-            case "check_vin":
-                $this->promptVinInput();
-                break;
-            case "subscription":
-                $this->subscription();
-                break;
-            case "help":
-                $this->help();
-                break;
-            case "start":
-                $this->start();
-                break;
-            default:
+        app(BotCommandRouter::class)->dispatch(
+            $action,
+            [
+                "check_vin" => fn () => $this->promptVinInput(),
+                "subscription" => fn () => $this->subscription(),
+                "help" => fn () => $this->help(),
+                "start" => fn () => $this->start(),
+            ],
+            function (string $action): void {
                 if (str_starts_with($action, "subscription_plan_")) {
                     $planId = (int) substr(
                         $action,
@@ -199,7 +146,8 @@ class VinBotHandler extends WebhookHandler
                 $this->logOutgoing("Действие: {$action}", [
                     "handler_action" => "unknown_callback",
                 ]);
-        }
+            },
+        );
     }
 
     private function processVin(string $vin): void
@@ -212,13 +160,18 @@ class VinBotHandler extends WebhookHandler
             /** @var VinService $vinService */
             $vinService = app(VinService::class);
             $carData = $vinService->decode((int) $this->bot->id, $vin);
-            $remainingBefore = $this->getFullReportsRemaining();
-            $fullReportAllowed = $remainingBefore > 0;
+            $consumeResult = app(ReportBalanceService::class)->consumeFullReport(
+                $this->chat,
+                (int) $this->bot->id,
+                $vin,
+                $carData,
+            );
+            $fullReportAllowed = $consumeResult !== null;
             $remainingAfterUse = $fullReportAllowed
-                ? $remainingBefore - 1
-                : $remainingBefore;
+                ? (int) $consumeResult["after"]
+                : $this->subscriptions()->getFullReportsRemaining($this->chat);
 
-            $message = $this->buildVinResultMessage(
+            $message = $this->messages()->vinResultText(
                 $carData,
                 $fullReportAllowed,
                 $remainingAfterUse,
@@ -229,156 +182,27 @@ class VinBotHandler extends WebhookHandler
             }
 
             if (($carData["error_code"] ?? "") !== "0") {
-                $message .= "\n\n⚠️ API сообщило: <b>{$this->escapeHtml((string) $carData["error_text"])}</b>";
+                $message .=
+                    "\n\n⚠️ API сообщило: <b>" .
+                    $this->messages()->escapeHtml((string) ($carData["error_text"] ?? "")) .
+                    "</b>";
             }
         } catch (\Throwable $e) {
             Log::error("VIN API error", ["exception" => $e]);
-            $message = "❌ <b>Не удалось получить данные по VIN</b>\n\n";
-            $message .= "Попробуйте позже или проверьте корректность VIN.";
+            $message = $this->messages()->vinFailureText();
         }
 
-        $messages = $this->splitLongMessage($message);
+        $messages = $this->messages()->splitLongMessage($message);
         foreach ($messages as $messagePart) {
             $this->chat->html($messagePart)->send();
         }
 
         $this->chat
-            ->html(
-                $fullReportAllowed
-                    ? "Дальше: полный отчет использован, можно проверить VIN еще раз или перейти в подписку."
-                    : "Дальше: можно проверить VIN еще раз или перейти в подписку.",
-            )
-            ->keyboard($this->vinResultKeyboard($fullReportAllowed))
+            ->html($this->messages()->vinResultNextText($fullReportAllowed))
+            ->keyboard($this->messages()->vinResultKeyboard($fullReportAllowed))
             ->send();
 
-        if ($fullReportAllowed) {
-            try {
-                $this->consumeFullReport($vin, $carData, $remainingAfterUse);
-            } catch (\Throwable $e) {
-                Log::warning("VIN full report consume failed", [
-                    "bot_id" => (int) $this->bot->id,
-                    "chat_model_id" => isset($this->chat->id)
-                        ? (int) $this->chat->id
-                        : null,
-                    "telegram_chat_id" => isset($this->chat->chat_id)
-                        ? (string) $this->chat->chat_id
-                        : null,
-                    "vin" => $vin,
-                    "error" => $e->getMessage(),
-                ]);
-            }
-        }
-
         $this->logOutgoing($message, ["handler_action" => "process_vin"]);
-    }
-
-    private function buildVinResultMessage(
-        array $carData,
-        bool $fullReportAllowed,
-        int $remainingAfterUse,
-    ): string
-    {
-        $message = "✅ <b>Результат VIN-проверки</b>\n\n";
-        $message .= $fullReportAllowed
-            ? "Доступен полный отчет. Осталось после списания: <b>{$remainingAfterUse}</b>\n\n"
-            : "Бесплатный режим. Полный отчет доступен по подписке.\n\n";
-        $sections = $carData["sections"] ?? [];
-
-        if (!is_array($sections) || $sections === []) {
-            return $this->buildLegacyVinResultMessage(
-                $carData,
-                $fullReportAllowed,
-                $remainingAfterUse,
-            );
-        }
-
-        foreach ($sections as $sectionTitle => $fields) {
-            if (!is_array($fields)) {
-                continue;
-            }
-
-            $lines = [];
-            foreach ($fields as $label => $value) {
-                $value = trim((string) $value);
-                if ($value === "" || $value === "-") {
-                    continue;
-                }
-
-                $displayValue = $this->shouldRevealField(
-                    (string) $label,
-                    $fullReportAllowed,
-                )
-                    ? $this->escapeHtml($value)
-                    : self::MASK_VALUE;
-
-                $lines[] =
-                    "{$this->escapeHtml((string) $label)}: <b>{$displayValue}</b>";
-            }
-
-            if ($lines === []) {
-                continue;
-            }
-
-            $message .= "<b>{$this->escapeHtml((string) $sectionTitle)}</b>\n";
-            $message .= implode("\n", $lines) . "\n\n";
-        }
-
-        return trim($message);
-    }
-
-    private function buildLegacyVinResultMessage(
-        array $carData,
-        bool $fullReportAllowed,
-        int $remainingAfterUse,
-    ): string
-    {
-        $message = "✅ <b>Результат VIN-проверки</b>\n\n";
-        $message .= $fullReportAllowed
-            ? "Доступен полный отчет. Осталось после списания: <b>{$remainingAfterUse}</b>\n\n"
-            : "Бесплатный режим. Полный отчет доступен по подписке.\n\n";
-
-        $fields = [
-            "VIN" => $carData["vin"] ?? "-",
-            "Марка" => $carData["make"] ?? "-",
-            "Модель" => $carData["model"] ?? "-",
-            "Год модели" => $carData["model_year"] ?? "-",
-            "Тип ТС" => $carData["vehicle_type"] ?? "-",
-            "Класс кузова" => $carData["body_class"] ?? "-",
-            "Двигатель" =>
-                trim(
-                    (string) ($carData["engine_cylinders"] ?? "-") .
-                        " / " .
-                        (string) ($carData["engine_liters"] ?? "-") .
-                        "L",
-                ),
-            "Топливо" => $carData["fuel_type"] ?? "-",
-            "Страна сборки" => $carData["plant_country"] ?? "-",
-            "Завод" => $carData["plant_company"] ?? "-",
-        ];
-
-        $lines = [];
-        foreach ($fields as $label => $value) {
-            $value = trim((string) $value);
-            if ($value === "" || $value === "-" || $value === "- / -L") {
-                continue;
-            }
-
-            $displayValue = $this->shouldRevealField(
-                (string) $label,
-                $fullReportAllowed,
-            )
-                ? $this->escapeHtml($value)
-                : self::MASK_VALUE;
-
-            $lines[] =
-                "{$this->escapeHtml((string) $label)}: <b>{$displayValue}</b>";
-        }
-
-        if ($lines === []) {
-            return "❌ <b>Не удалось разобрать данные по VIN</b>\n\nПопробуйте повторить запрос позже.";
-        }
-
-        return $message . implode("\n", $lines);
     }
 
     private function sendMakeLogo(array $carData): void
@@ -393,13 +217,7 @@ class VinBotHandler extends WebhookHandler
             return;
         }
 
-        $make = trim((string) ($carData["make"] ?? ""));
-        $model = trim((string) ($carData["model"] ?? ""));
-        $caption = trim("{$make} {$model}");
-        $caption =
-            $caption !== ""
-                ? "🚗 <b>{$this->escapeHtml($caption)}</b>"
-                : "🚗 <b>VIN отчет</b>";
+        $caption = $this->messages()->makeLogoCaption($carData);
 
         try {
             $this->chat->photo($photo)->html($caption)->send();
@@ -478,115 +296,18 @@ class VinBotHandler extends WebhookHandler
         }
     }
 
-    private function shouldRevealField(string $label, bool $fullReportAllowed): bool
-    {
-        return $fullReportAllowed || in_array($label, self::FREE_VISIBLE_FIELDS, true);
-    }
-
-    private function consumeFullReport(
-        string $vin,
-        array $carData,
-        int $remainingAfterUse,
-    ): void {
-        if (!isset($this->chat->full_reports_remaining)) {
-            return;
-        }
-
-        $before = (int) $this->chat->full_reports_remaining;
-        $after = max(0, $remainingAfterUse);
-
-        $this->chat->full_reports_remaining = $after;
-        $this->chat->save();
-
-        SubscriptionTransaction::query()->create([
-            "telegraph_bot_id" => (int) $this->bot->id,
-            "telegraph_chat_id" => isset($this->chat->id) ? (int) $this->chat->id : null,
-            "subscription_plan_id" => null,
-            "transaction_type" => "consume",
-            "reports_before" => $before,
-            "reports_delta" => -1,
-            "reports_after" => $after,
-            "amount_rub" => null,
-            "status" => "done",
-            "comment" => "Списание полного отчета при выдаче VIN-результата",
-            "meta" => [
-                "vin" => $vin,
-                "make" => $carData["make"] ?? null,
-                "model" => $carData["model"] ?? null,
-            ],
-        ]);
-
-        Log::info("VIN full report consumed", [
-            "bot_id" => (int) $this->bot->id,
-            "chat_model_id" => isset($this->chat->id)
-                ? (int) $this->chat->id
-                : null,
-            "telegram_chat_id" => isset($this->chat->chat_id)
-                ? (string) $this->chat->chat_id
-                : null,
-            "vin" => $vin,
-            "make" => $carData["make"] ?? null,
-            "model" => $carData["model"] ?? null,
-            "before" => $before,
-            "after" => $after,
-        ]);
-    }
-
-    private function vinResultKeyboard(bool $fullReportAllowed): Keyboard
-    {
-        return $fullReportAllowed
-            ? $this->fullReportKeyboard()
-            : $this->freeReportKeyboard();
-    }
-
-    private function freeReportKeyboard(): Keyboard
-    {
-        return Keyboard::make()
-            ->buttons([
-                Button::make("🔍 Проверить еще")->action("check_vin"),
-                Button::make("💳 Подписка")->action("subscription"),
-                Button::make("🏠 На главную")->action("start"),
-            ])
-            ->chunk(2);
-    }
-
-    private function fullReportKeyboard(): Keyboard
-    {
-        return Keyboard::make()
-            ->buttons([
-                Button::make("🔍 Проверить еще")->action("check_vin"),
-                Button::make("💳 Подписка")->action("subscription"),
-                Button::make("🏠 На главную")->action("start"),
-            ])
-            ->chunk(2);
-    }
-
-    private function subscriptionKeyboard($plans): Keyboard
-    {
-        $buttons = [];
-
-        foreach ($plans as $plan) {
-            $buttons[] = Button::make(
-                $this->formatSubscriptionPlanLabel($plan),
-            )->action("subscription_plan_{$plan->id}");
-        }
-
-        $buttons[] = Button::make("🏠 На главную")->action("start");
-
-        return Keyboard::make()->buttons($buttons)->chunk(2);
-    }
-
     private function subscriptionPlan(int $planId): void
     {
-        $plan = $this->getSubscriptionPlans()->firstWhere("id", $planId);
+        $botId = (int) $this->bot->id;
+        $plan = $this->subscriptions()->findSubscriptionPlan($botId, $planId);
 
         if (!$plan) {
-            $message =
-                "💳 <b>Подписка</b>\n\nВыбранный пакет не найден или неактивен.";
+            $plans = $this->subscriptions()->getSubscriptionPlans($botId);
+            $message = $this->messages()->subscriptionPlanMissingText();
 
             $this->chat
                 ->html($message)
-                ->keyboard($this->subscriptionKeyboard($this->getSubscriptionPlans()))
+                ->keyboard($this->messages()->subscriptionKeyboard($plans))
                 ->send();
 
             $this->logOutgoing($message, [
@@ -598,64 +319,18 @@ class VinBotHandler extends WebhookHandler
         }
 
         $count = (int) $plan->report_count;
-        $price = number_format((float) $plan->price_rub, 0, ",", " ");
-        $before = $this->getFullReportsRemaining();
-        $after = $before + $count;
-
-        DB::transaction(function () use ($plan, $count, $price, $before, $after): void {
-            $this->chat->full_reports_remaining = $after;
-            $this->chat->save();
-
-            SubscriptionTransaction::query()->create([
-                "telegraph_bot_id" => (int) $this->bot->id,
-                "telegraph_chat_id" => isset($this->chat->id)
-                    ? (int) $this->chat->id
-                    : null,
-                "subscription_plan_id" => $plan->id,
-                "transaction_type" => "purchase_simulated",
-                "reports_before" => $before,
-                "reports_delta" => $count,
-                "reports_after" => $after,
-                "amount_rub" => (float) $plan->price_rub,
-                "status" => "done",
-                "comment" => "Имитация покупки подписки из Telegram",
-                "meta" => [
-                    "plan_name" => $plan->name,
-                ],
-            ]);
-
-            SubscriptionTransaction::query()->create([
-                "telegraph_bot_id" => (int) $this->bot->id,
-                "telegraph_chat_id" => isset($this->chat->id)
-                    ? (int) $this->chat->id
-                    : null,
-                "subscription_plan_id" => $plan->id,
-                "transaction_type" => "credit",
-                "reports_before" => $before,
-                "reports_delta" => $count,
-                "reports_after" => $after,
-                "amount_rub" => null,
-                "status" => "done",
-                "comment" => "Начисление отчетов после имитации покупки",
-                "meta" => [
-                    "plan_name" => $plan->name,
-                ],
-            ]);
-        });
-
-        $message =
-            "💳 <b>Подписка</b>\n\n" .
-            "Выбран пакет: <b>" .
-            $this->escapeHtml((string) $plan->name) .
-            "</b>\n" .
-            "Количество отчетов: <b>{$count}</b>\n" .
-            "Стоимость: <b>{$price} ₽</b>\n\n" .
-            "Подписка зачислена в тестовом режиме.\n" .
-            "Баланс отчетов: <b>{$before}</b> → <b>{$after}</b>.";
+        $purchase = $this->subscriptions()->simulatePurchase($this->chat, $botId, $plan);
+        $before = (int) $purchase["before"];
+        $after = (int) $purchase["after"];
+        $message = $this->messages()->subscriptionPlanPurchasedText($plan, $before, $after);
 
         $this->chat
             ->html($message)
-            ->keyboard($this->subscriptionKeyboard($this->getSubscriptionPlans()))
+            ->keyboard(
+                $this->messages()->subscriptionKeyboard(
+                    $this->subscriptions()->getSubscriptionPlans($botId),
+                ),
+            )
             ->send();
 
         $this->logOutgoing($message, [
@@ -668,7 +343,7 @@ class VinBotHandler extends WebhookHandler
         ]);
 
         Log::info("VIN subscription simulated purchase", [
-            "bot_id" => (int) $this->bot->id,
+            "bot_id" => $botId,
             "chat_model_id" => isset($this->chat->id) ? (int) $this->chat->id : null,
             "telegram_chat_id" => isset($this->chat->chat_id)
                 ? (string) $this->chat->chat_id
@@ -681,87 +356,13 @@ class VinBotHandler extends WebhookHandler
         ]);
     }
 
-    private function formatSubscriptionPlanLabel(SubscriptionPlan $plan): string
-    {
-        $count = (int) $plan->report_count;
-        $suffix = $count === 1 ? "отчет" : "отчетов";
-        $price = number_format((float) $plan->price_rub, 0, ",", " ");
-
-        return "{$count} {$suffix} = {$price}р";
-    }
-
-    private function getSubscriptionPlans()
-    {
-        $plans = SubscriptionPlan::query()
-            ->active()
-            ->where(function ($query) {
-                $query
-                    ->whereNull("telegraph_bot_id")
-                    ->orWhere("telegraph_bot_id", $this->bot->id);
-            })
-            ->orderByRaw("CASE WHEN telegraph_bot_id IS NULL THEN 1 ELSE 0 END")
-            ->orderBy("sort_order")
-            ->orderBy("report_count")
-            ->get();
-
-        return $plans
-            ->groupBy("report_count")
-            ->map(fn ($group) => $group->first())
-            ->values();
-    }
-
-    private function getFullReportsRemaining(): int
-    {
-        return max(0, (int) ($this->chat->full_reports_remaining ?? 0));
-    }
-
-    private function splitLongMessage(string $message): array
-    {
-        $limit = 3500;
-        if (mb_strlen($message) <= $limit) {
-            return [$message];
-        }
-
-        $parts = [];
-        $current = "";
-
-        foreach (explode("\n\n", $message) as $block) {
-            $candidate = $current === "" ? $block : "{$current}\n\n{$block}";
-            if (mb_strlen($candidate) <= $limit) {
-                $current = $candidate;
-                continue;
-            }
-
-            if ($current !== "") {
-                $parts[] = $current;
-            }
-
-            $current = $block;
-        }
-
-        if ($current !== "") {
-            $parts[] = $current;
-        }
-
-        return $parts;
-    }
-
-    private function escapeHtml(string $value): string
-    {
-        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, "UTF-8");
-    }
-
     public function handleUnknownCommand(Stringable $text): void
     {
         $this->chat
             ->markdown(
                 "❌ Неизвестная команда в VIN-декодере: *{$text}*\n\nИспользуйте /help для справки.",
             )
-            ->keyboard(function ($keyboard) {
-                $keyboard->button("🔍 Проверить VIN")->action("check_vin");
-                $keyboard->button("❓ Помощь")->action("help");
-                return $keyboard;
-            })
+            ->keyboard($this->messages()->unknownCommandKeyboard())
             ->send();
 
         $this->logOutgoing("❌ Неизвестная команда в VIN-декодере: {$text}", [
@@ -794,58 +395,30 @@ class VinBotHandler extends WebhookHandler
 
     private function ackCallbackQuery(string $message = ""): void
     {
-        if (isset($this->callbackQueryId) && $this->callbackQueryId) {
-            $this->bot->replyWebhook($this->callbackQueryId, $message)->send();
-        }
-    }
-
-    private function extractActionFromJson(mixed $data): string
-    {
-        if (is_object($data) && method_exists($data, "get")) {
-            try {
-                $action = $data->get("action");
-                if (is_string($action) && $action !== "") {
-                    return $action;
-                }
-            } catch (\Throwable $e) {
-                Log::debug("VIN callback parse object error", [
-                    "error" => $e->getMessage(),
-                ]);
-            }
-        }
-
-        if (is_array($data) && isset($data["action"])) {
-            return (string) $data["action"];
-        }
-
-        if (is_string($data)) {
-            $json = trim($data);
-            if (str_starts_with($json, "{")) {
-                $decoded = json_decode($json, true);
-                if (is_array($decoded) && isset($decoded["action"])) {
-                    return (string) $decoded["action"];
-                }
-            }
-
-            $action = str_replace('{"action":"', "", $json);
-            $action = str_replace('"}', "", $action);
-            $action = trim($action, '"\'');
-            if ($action !== "") {
-                return $action;
-            }
-        }
-
-        return "";
+        app(TelegramResponder::class)->ackCallback(
+            $this->botContext(),
+            isset($this->callbackQueryId) ? (string) $this->callbackQueryId : null,
+            $message,
+        );
     }
 
     private function logOutgoing(string $message, array $meta = []): void
     {
-        app(ChatLogger::class)->logOutbound(
-            (int) $this->bot->id,
-            isset($this->chat->id) ? (int) $this->chat->id : null,
-            isset($this->chat->chat_id) ? (string) $this->chat->chat_id : null,
-            $message,
-            $meta,
-        );
+        app(TelegramResponder::class)->logOutgoing($this->botContext(), $message, $meta);
+    }
+
+    private function botContext(): BotContext
+    {
+        return new BotContext($this->bot, $this->chat);
+    }
+
+    private function messages(): VinMessageBuilder
+    {
+        return app(VinMessageBuilder::class);
+    }
+
+    private function subscriptions(): VinSubscriptionService
+    {
+        return app(VinSubscriptionService::class);
     }
 }

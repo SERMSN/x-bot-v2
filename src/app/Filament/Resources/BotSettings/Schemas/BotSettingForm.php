@@ -36,6 +36,8 @@ class BotSettingForm
                 ->maxLength(255),
             TextInput::make("value")
                 ->label("Значение")
+                ->password(fn ($get) => self::isSecretKey((string) $get("key")))
+                ->revealable(fn ($get) => self::isSecretKey((string) $get("key")))
                 ->required()
                 ->maxLength(255),
             Select::make("telegraph_bot_id")
@@ -45,5 +47,18 @@ class BotSettingForm
                 ->preload()
                 ->required(),
         ]);
+    }
+
+    private static function isSecretKey(string $key): bool
+    {
+        return in_array(
+            $key,
+            [
+                BotSetting::KEY_OPENWEATHER_API_KEY,
+                BotSetting::KEY_VIN_API_KEY,
+                BotSetting::KEY_VIN_API_SECRET_KEY,
+            ],
+            true,
+        );
     }
 }
