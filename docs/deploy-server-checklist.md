@@ -65,6 +65,8 @@ nano .env
 - `DB_USERNAME=...`
 - `DB_PASSWORD="..."` (в кавычках, если есть спецсимволы, например `#`)
 - `TELEGRAPH_WEBHOOK_SECRET=<secret>` (если используется)
+- если `PUBLIC_ASSETS_PATH` не задан, divination-карты будут искать в Laravel `public_path()`;
+- если путь задан, он должен быть непустым абсолютным путем к публичной директории.
 
 Инициализация:
 
@@ -73,6 +75,7 @@ cd /var/www/x-bot.su/src
 /opt/php84/bin/php /opt/php84/bin/composer install --no-dev --optimize-autoloader
 /opt/php84/bin/php artisan key:generate
 /opt/php84/bin/php artisan migrate --force
+/opt/php84/bin/php artisan db:seed --class=SubscriptionPlanSeeder --force
 /opt/php84/bin/php artisan optimize:clear
 /opt/php84/bin/php artisan config:cache
 /opt/php84/bin/php artisan route:cache
@@ -86,9 +89,10 @@ chmod -R 775 storage bootstrap/cache
 - установка `sshpass` на GitHub runner;
 - вычисление измененных файлов между `github.event.before` и `github.sha`;
 - раздельная выгрузка:
-  - `src/*` в `/var/www/x-bot.su/src`
-  - `src/public/*` в `/var/www/x-bot.su/public_html`;
+- `src/*` в `/var/www/x-bot.su/src`
+- `src/public/*` в `/var/www/x-bot.su/public_html`;
 - удаление удаленных из git файлов на сервере.
+- после деплоя обязательно выполнить `php artisan queue:restart`, если боты/уведомления работают через очереди.
 
 Что должно остаться в workflow:
 1. `DEPLOY_HOST`, `DEPLOY_PORT`, `DEPLOY_USER`, `DEPLOY_PASSWORD` берутся только из Secrets.

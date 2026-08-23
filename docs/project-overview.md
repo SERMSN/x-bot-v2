@@ -176,6 +176,34 @@ x-bot-v2/
   - `VIN_API_SECRET_KEY`
   - `VIN_API_DECODE_URL` (legacy)
 
+### `App\Models\SubscriptionPlan`
+- Таблица: `subscription_plans`
+- Назначение: тарифы и пакеты отчетов для VIN-бота
+- Основные поля:
+  - `telegraph_bot_id`
+  - `name`
+  - `report_count`
+  - `price_rub`
+  - `description`
+  - `is_active`
+  - `sort_order`
+
+### `App\Models\SubscriptionTransaction`
+- Таблица: `subscription_transactions`
+- Назначение: журнал покупок и списаний VIN-отчетов
+- Основные поля:
+  - `telegraph_bot_id`
+  - `telegraph_chat_id`
+  - `subscription_plan_id`
+  - `transaction_type`
+  - `reports_before`
+  - `reports_delta`
+  - `reports_after`
+  - `amount_rub`
+  - `status`
+  - `comment`
+  - `meta`
+
 ### `App\Models\AppSetting`
 - Таблица: `app_settings`
 - Назначение: глобальные настройки интерфейсов Filament
@@ -242,6 +270,12 @@ x-bot-v2/
   - запоминание последнего погодного запроса;
   - ежедневные уведомления по сохраненным координатам;
   - inline/reply клавиатуры и callback-действия.
+- Архитектура:
+  - `WeatherBotHandler` принимает Telegram events;
+  - `WeatherConversationService` управляет состояниями, кешем ожиданий и параметрами чата;
+  - `WeatherMessageBuilder` формирует тексты и кнопки;
+  - `WeatherDomainService` ходит в погодный сервис и делает доменную оркестрацию;
+  - все сервисы работают через `BotContext`, а не через прямой доступ к `bot`.
 
 ### `App\Services\Telegram\Handlers\VinBotHandler`
 - VIN-бот
@@ -258,9 +292,16 @@ x-bot-v2/
   - остальные поля маскируются `**********`;
   - полный отчет доступен по счетчику `full_reports_remaining` на чат;
   - краткий отчет содержит кнопку перехода в раздел подписки;
-  - раздел подписки пока заглушка с кнопками пополнения на `1`, `5`, `10`, `20`, `50` отчетов;
-  - списание полного отчета логируется в `Log::info`;
+  - раздел подписки работает через `VinSubscriptionService`;
+  - списание полного отчета выполняется атомарно через `ReportBalanceService` с `DB::transaction()` и `lockForUpdate()`;
+  - операции покупки и списания пишутся в `subscription_transactions`;
   - обработка ошибок API.
+- Архитектура:
+  - `VinBotHandler` принимает Telegram events;
+  - `VinMessageBuilder` формирует тексты и кнопки;
+  - `VinSubscriptionService` управляет тарифами и покупкой отчетов;
+  - `ReportBalanceService` отвечает за атомарное списание баланса;
+  - общий support-слой содержит `BotContext`, `CallbackAction`, `TelegramResponder`.
 
 ### `App\Services\Telegram\Handlers\DivinationBotHandler`
 - Бот-предсказатель
@@ -277,7 +318,7 @@ x-bot-v2/
   - обновление предсказания и карты по inline-кнопкам.
 - Особенности хранения:
   - у каждой карты есть `local_image`, заданный относительно Laravel `public/`;
-  - если публичная директория отделена от Laravel-кода, базовый путь задается через `PUBLIC_ASSETS_PATH`;
+  - если публичная директория отделена от Laravel-кода, базовый путь задается через `PUBLIC_ASSETS_PATH` и не должен быть пустым;
   - текущая реализация предполагает обязательное наличие файла изображения для каждой карты.
 
 ## Services

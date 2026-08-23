@@ -169,7 +169,7 @@ docker-compose exec php php artisan migrate
 - изображения карт хранятся локально в `src/public/divination/cards/`;
 - путь `local_image` в коде задается относительно Laravel `public/`, например `divination/cards/sun.jpg`.
 - сценарий карты предполагает обязательное наличие изображения для каждой карты в локальном каталоге.
-- если на сервере публичная директория отделена от Laravel-кода, задайте `PUBLIC_ASSETS_PATH`, например `/var/www/x-bot.su/public_html`.
+- если на сервере публичная директория отделена от Laravel-кода, задайте `PUBLIC_ASSETS_PATH`, например `/var/www/x-bot.su/public_html`; пустое значение использовать нельзя.
 - при раздельном деплое код может лежать в `src`, а изображения карт в `public_html/divination/cards`.
 
 ## Планировщик
