@@ -257,16 +257,51 @@ class DivinationBotHandler extends WebhookHandler
         $configuredBasePath = trim((string) env("PUBLIC_ASSETS_PATH"));
         if ($configuredBasePath !== "") {
             $basePath = $configuredBasePath;
-        } elseif ((int) env("HOSTING", 0) === 1) {
-            $hostingBasePath = dirname(base_path()) . DIRECTORY_SEPARATOR . "public_html";
-            $basePath = is_dir($hostingBasePath) ? $hostingBasePath : public_path();
         } else {
-            $basePath = public_path();
+            $hostingMode = $this->readHostingMode();
+            if ($hostingMode === 1) {
+                $hostingBasePath = dirname(base_path()) . DIRECTORY_SEPARATOR . "public_html";
+                $basePath = is_dir($hostingBasePath) ? $hostingBasePath : public_path();
+            } else {
+                $basePath = public_path();
+            }
         }
 
         $basePath = rtrim($basePath, "/\\");
 
         return $basePath . DIRECTORY_SEPARATOR . ltrim($relativePath, "/\\");
+    }
+
+    private function readHostingMode(): int
+    {
+        foreach ([base_path(".env"), dirname(base_path()) . DIRECTORY_SEPARATOR . ".env"] as $envPath) {
+            if (!is_file($envPath) || !is_readable($envPath)) {
+                continue;
+            }
+
+            $lines = @file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            if ($lines === false) {
+                continue;
+            }
+
+            $prefix = "HOSTING=";
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if ($line === "" || str_starts_with($line, "#")) {
+                    continue;
+                }
+                if (!str_starts_with($line, $prefix)) {
+                    continue;
+                }
+
+                $value = trim(substr($line, strlen($prefix)));
+                $value = trim($value, " \t\n\r\0\x0B\"'");
+
+                return (int) $value;
+            }
+        }
+
+        return (int) env("HOSTING", 0);
     }
 
     private function mainMenuKeyboard(): Keyboard
