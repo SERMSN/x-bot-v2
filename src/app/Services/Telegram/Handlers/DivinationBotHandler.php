@@ -254,14 +254,19 @@ class DivinationBotHandler extends WebhookHandler
 
     private function publicAssetPath(string $relativePath): string
     {
-        $basePath = (string) env("PUBLIC_ASSETS_PATH");
-        if (trim($basePath) === "") {
+        $configuredBasePath = trim((string) env("PUBLIC_ASSETS_PATH"));
+        if ($configuredBasePath !== "") {
+            $basePath = $configuredBasePath;
+        } elseif ((int) env("HOSTING", 0) === 1) {
+            $hostingBasePath = dirname(base_path()) . DIRECTORY_SEPARATOR . "public_html";
+            $basePath = is_dir($hostingBasePath) ? $hostingBasePath : public_path();
+        } else {
             $basePath = public_path();
         }
 
-        $basePath = rtrim($basePath, "/");
+        $basePath = rtrim($basePath, "/\\");
 
-        return $basePath . "/" . trim($relativePath, "/");
+        return $basePath . DIRECTORY_SEPARATOR . ltrim($relativePath, "/\\");
     }
 
     private function mainMenuKeyboard(): Keyboard
