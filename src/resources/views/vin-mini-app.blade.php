@@ -542,7 +542,7 @@
             const loader = document.getElementById('purchase-loader');
 
             document.querySelectorAll('.plan-form').forEach((form) => {
-                form.addEventListener('submit', (event) => {
+                form.addEventListener('submit', async (event) => {
                     event.preventDefault();
 
                     if (!loader) {
@@ -550,28 +550,70 @@
                         return;
                     }
 
-                    loader.classList.add('visible');
                     const submitButton = form.querySelector('.plan-button');
+                    const loaderText = loader.querySelector('.loader-text');
+                    const formData = new FormData(form);
+
+                    loader.classList.remove('success-phase');
+                    loader.classList.add('visible');
+
                     if (submitButton) {
                         submitButton.disabled = true;
                     }
 
-                    setTimeout(() => {
-                        const loaderText = loader.querySelector('.loader-text');
+                    try {
+                        const response = await fetch(form.action, {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                            body: formData,
+                        });
+
+                        const payload = await response.json().catch(() => ({}));
+
+                        if (!response.ok || !payload.success) {
+                            throw new Error(payload.message || 'Покупка не прошла');
+                        }
+
                         if (loaderText) {
-                            loaderText.textContent = 'Пакет уже в вашем доступе';
+                            loaderText.textContent = `Пакет ${payload.report_count || 0} уже в вашем доступе`;
                         }
                         loader.classList.add('success-phase');
-                    }, 5000);
 
-                    setTimeout(() => {
-                        if (telegramApp && typeof telegramApp.close === 'function') {
-                            telegramApp.close();
-                            return;
+                        setTimeout(() => {
+                            if (telegramApp && typeof telegramApp.close === 'function') {
+                                telegramApp.close();
+                                return;
+                            }
+
+                            if (window.history.length > 1) {
+                                window.history.back();
+                                return;
+                            }
+
+                            window.location.href = '/';
+                        }, 1800);
+                    } catch (error) {
+                        if (loaderText) {
+                            loaderText.textContent = 'Не удалось оформить подписку. Попробуйте ещё раз.';
                         }
 
-                        window.history.back();
-                    }, 6000);
+                        setTimeout(() => {
+                            if (telegramApp && typeof telegramApp.close === 'function') {
+                                telegramApp.close();
+                                return;
+                            }
+
+                            if (window.history.length > 1) {
+                                window.history.back();
+                                return;
+                            }
+
+                            window.location.href = '/';
+                        }, 1600);
+                    }
                 });
             });
 

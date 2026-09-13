@@ -64,6 +64,17 @@ class VinMiniAppController extends Controller
             if ($chat) {
                 $purchase = app(VinSubscriptionService::class)->simulatePurchase($chat, $botId, $plan);
                 $message = "Тариф #{$plan->id} принят. Остаток: {$purchase['before']} → {$purchase['after']}";
+
+                if ($request->expectsJson() || $request->ajax() || $request->header("X-Requested-With") === "XMLHttpRequest") {
+                    return response()->json([
+                        "success" => true,
+                        "plan_id" => $plan->id,
+                        "report_count" => (int) $plan->report_count,
+                        "before" => (int) $purchase["before"],
+                        "after" => (int) $purchase["after"],
+                        "message" => $message,
+                    ]);
+                }
             }
         }
 
