@@ -58,7 +58,11 @@ class VinBotHandler extends WebhookHandler
 
         $this->chat
             ->html($message)
-            ->keyboard($this->messages()->subscriptionKeyboard($plans))
+            ->keyboard($this->messages()->subscriptionKeyboard(
+                $plans,
+                (int) $this->bot->id,
+                (string) ($this->chat->chat_id ?? ''),
+            ))
             ->send();
 
         $this->logOutgoing($message, ["handler_action" => "subscription"]);

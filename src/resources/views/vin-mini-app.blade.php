@@ -26,6 +26,43 @@
                 --radius-md: 18px;
             }
 
+            html[data-theme="dark"] {
+                --bg: #0f172a;
+                --bg-2: #111827;
+                --card: rgba(15, 23, 42, 0.86);
+                --card-strong: #111827;
+                --text: #e5eefb;
+                --muted: #a5b4cf;
+                --primary: #8b8cff;
+                --primary-strong: #6c6ef3;
+                --primary-soft: rgba(139, 140, 255, 0.18);
+                --success: #34d399;
+                --success-soft: rgba(52, 211, 153, 0.14);
+                --gold: #fbbf24;
+                --gold-soft: rgba(251, 191, 36, 0.16);
+                --line: rgba(148, 163, 184, 0.22);
+                --shadow: 0 26px 55px rgba(2, 6, 23, 0.52);
+                --soft-panel: rgba(17, 24, 39, 0.9);
+                --soft-panel-strong: rgba(15, 23, 42, 0.96);
+                --button-soft: rgba(139, 140, 255, 0.14);
+                --button-text: #f8faff;
+                --modal-bg: rgba(15, 23, 42, 0.74);
+                --modal-card: rgba(17, 24, 39, 0.94);
+                --modal-border: rgba(148, 163, 184, 0.16);
+                --success-pill: rgba(52, 211, 153, 0.12);
+            }
+
+            :root {
+                --soft-panel: rgba(255, 255, 255, 0.76);
+                --soft-panel-strong: rgba(255, 255, 255, 0.92);
+                --button-soft: rgba(91, 92, 230, 0.1);
+                --button-text: #ffffff;
+                --modal-bg: rgba(15, 23, 42, 0.22);
+                --modal-card: rgba(255, 255, 255, 0.94);
+                --modal-border: rgba(148, 163, 184, 0.16);
+                --success-pill: rgba(16, 185, 129, 0.12);
+            }
+
             * { box-sizing: border-box; }
 
             html, body {
@@ -59,6 +96,15 @@
                 backdrop-filter: blur(16px);
                 box-shadow: var(--shadow);
                 padding: 24px 18px 18px;
+            }
+
+            html[data-theme="dark"] .shell {
+                background: rgba(15, 23, 42, 0.7);
+                border-color: rgba(148, 163, 184, 0.2);
+            }
+
+            html[data-theme="dark"] .summary {
+                box-shadow: 0 18px 40px rgba(91, 92, 230, 0.22);
             }
 
             .shell::before {
@@ -118,10 +164,11 @@
 
             .title {
                 margin: 0;
-                font-size: clamp(2rem, 6vw, 3rem);
-                line-height: 0.96;
-                letter-spacing: -0.06em;
-                font-weight: 900;
+                font-size: clamp(1.4rem, 3vw, 2rem);
+                line-height: 1.08;
+                letter-spacing: -0.04em;
+                font-weight: 800;
+                text-align: center;
             }
 
             .subtitle {
@@ -185,12 +232,12 @@
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                gap: 18px;
+                gap: 12px;
                 border: 1px solid var(--line);
-                background: rgba(255, 255, 255, 0.72);
+                background: var(--soft-panel);
                 color: var(--text);
-                border-radius: 26px;
-                padding: 18px 18px;
+                border-radius: 18px;
+                padding: 12px 14px;
                 cursor: pointer;
                 text-align: left;
                 box-shadow: 0 12px 28px rgba(15, 23, 42, 0.04);
@@ -210,7 +257,7 @@
 
             .plan-button.selected {
                 border-color: rgba(91, 92, 230, 0.82);
-                background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(238, 242, 255, 0.95));
+                background: linear-gradient(135deg, var(--soft-panel-strong), rgba(91, 92, 230, 0.08));
                 box-shadow: 0 18px 32px rgba(91, 92, 230, 0.16);
             }
 
@@ -225,11 +272,10 @@
 
             .plan-main {
                 display: flex;
-                flex-direction: column;
-                justify-content: center;
-                gap: 4px;
-                min-width: 0;
                 flex: 1;
+                min-width: 0;
+                justify-content: flex-start;
+                align-items: center;
             }
 
             .plan-head {
@@ -237,36 +283,17 @@
                 align-items: center;
                 gap: 8px;
                 flex-wrap: wrap;
+                justify-content: flex-start;
+                width: 100%;
             }
 
             .plan-name {
-                font-size: 1.1rem;
+                font-size: 1.06rem;
                 font-weight: 800;
                 letter-spacing: -0.03em;
+                margin-right: auto;
             }
 
-            .plan-tag,
-            .plan-badge {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                padding: 5px 8px;
-                border-radius: 999px;
-                font-size: 0.65rem;
-                font-weight: 800;
-                letter-spacing: 0.08em;
-                text-transform: uppercase;
-            }
-
-            .plan-tag {
-                background: var(--success-soft);
-                color: var(--success);
-            }
-
-            .plan-badge {
-                background: var(--gold-soft);
-                color: var(--gold);
-            }
 
             .plan-meta {
                 color: var(--muted);
@@ -283,36 +310,39 @@
                 display: flex;
                 align-items: center;
                 justify-content: flex-end;
-                gap: 12px;
-                min-width: 220px;
+                gap: 10px;
+                min-width: 210px;
                 flex-shrink: 0;
             }
 
             .price {
-                font-size: clamp(1.4rem, 4vw, 1.9rem);
-                font-weight: 900;
+                font-size: clamp(1.1rem, 2.6vw, 1.6rem);
+                font-weight: 800;
                 line-height: 1;
-                letter-spacing: -0.06em;
+                letter-spacing: -0.04em;
+                margin-left: auto;
             }
 
             .cta {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                min-width: 92px;
-                padding: 9px 12px;
+                min-width: 82px;
+                padding: 8px 12px;
                 border-radius: 999px;
-                font-size: 0.68rem;
+                font-size: 0.64rem;
                 font-weight: 800;
                 letter-spacing: 0.08em;
                 text-transform: uppercase;
-                background: rgba(91, 92, 230, 0.1);
+                background: var(--button-soft);
                 color: var(--primary);
+                border: 1px solid rgba(91, 92, 230, 0.12);
             }
 
             .plan-button.selected .cta {
                 background: linear-gradient(135deg, var(--primary), var(--primary-strong));
-                color: white;
+                color: var(--button-text);
+                border-color: transparent;
             }
 
             .notice {
@@ -324,6 +354,109 @@
                 color: #0f766e;
                 font-size: 0.92rem;
                 font-weight: 700;
+            }
+
+            html[data-theme="dark"] .notice {
+                background: rgba(16, 185, 129, 0.12);
+                border-color: rgba(52, 211, 153, 0.2);
+                color: #b8f5de;
+            }
+
+            .loader-overlay {
+                position: fixed;
+                inset: 0;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                background: var(--modal-bg);
+                backdrop-filter: blur(9px);
+                z-index: 50;
+                padding: 20px;
+            }
+
+            .loader-overlay.visible {
+                display: flex;
+            }
+
+            .loader-card {
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 12px;
+                padding: 18px 20px 16px;
+                border-radius: 28px;
+                background: var(--modal-card);
+                color: var(--text);
+                border: none;
+                box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+                text-align: center;
+                min-width: 248px;
+                max-width: 292px;
+                animation: modalIn 0.22s ease;
+            }
+
+            .spinner {
+                width: 34px;
+                height: 34px;
+                border-radius: 50%;
+                border: 3px solid rgba(91, 92, 230, 0.16);
+                border-top-color: var(--primary);
+                box-shadow: 0 0 0 6px rgba(91, 92, 230, 0.05);
+                animation: spin 0.9s linear infinite;
+            }
+
+            .loader-text {
+                margin: 0;
+                font-size: 0.95rem;
+                font-weight: 700;
+                letter-spacing: -0.02em;
+                line-height: 1.45;
+                color: var(--text);
+                opacity: 0.92;
+            }
+
+            .successful-badge {
+                display: none;
+                padding: 8px 12px;
+                border-radius: 999px;
+                background: var(--success-pill);
+                color: var(--success);
+                font-size: 0.76rem;
+                font-weight: 800;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+            }
+
+            .success-phase .loader-text {
+                font-size: 1.04rem;
+                color: var(--success);
+                font-weight: 800;
+                opacity: 1;
+            }
+
+            .success-phase .spinner {
+                display: none;
+            }
+
+            .success-phase .successful-badge {
+                display: inline-flex;
+            }
+
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+
+            @keyframes modalIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(8px) scale(0.98);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
             }
 
             @keyframes riseIn {
@@ -365,32 +498,22 @@
                     </div>
                 </section>
 
-                @if (session('vin-mini-app-action'))
-                    <div class="notice">{{ session('vin-mini-app-action') }}</div>
-                @endif
-
                 <section class="plans" aria-label="Тарифы">
                     @forelse ($plans as $plan)
                         @php
                             $isSelected = $selectedPlanId !== null && (int) $selectedPlanId === (int) $plan->id;
-                            $reportLabel = $plan->report_count === 1 ? 'отчет' : 'отчета';
-                            $isPopular = (int) $plan->report_count >= 20;
                         @endphp
 
                         <form class="plan-form" method="POST" action="{{ route('vin-mini-app.purchase') }}">
                             @csrf
                             <input type="hidden" name="plan_id" value="{{ $plan->id }}">
+                            <input type="hidden" name="bot_id" value="{{ request('bot_id') }}">
+                            <input type="hidden" name="chat_id" value="{{ request('chat_id') }}">
                             <button type="submit" class="plan-button {{ $isSelected ? 'selected' : '' }}">
                                 <div class="plan-main">
                                     <div class="plan-head">
-                                        <span class="plan-name">{{ $plan->name }}</span>
-                                        @if ($isPopular)
-                                            <span class="plan-tag">Популярно</span>
-                                        @else
-                                            <span class="plan-badge">Пакет</span>
-                                        @endif
+                                        <span class="plan-name">{{ $plan->report_count }} отчёт</span>
                                     </div>
-
                                 </div>
 
                                 <div class="price-box">
@@ -406,21 +529,91 @@
             </div>
         </main>
 
+        <div class="loader-overlay" id="purchase-loader" aria-live="polite">
+            <div class="loader-card">
+                <div class="spinner"></div>
+                <div class="successful-badge">Готово</div>
+                <div class="loader-text">Проверяем вашу подписку…</div>
+            </div>
+        </div>
+
         <script>
             const telegramApp = window.Telegram && window.Telegram.WebApp;
+            const loader = document.getElementById('purchase-loader');
+
+            document.querySelectorAll('.plan-form').forEach((form) => {
+                form.addEventListener('submit', (event) => {
+                    event.preventDefault();
+
+                    if (!loader) {
+                        form.submit();
+                        return;
+                    }
+
+                    loader.classList.add('visible');
+                    const submitButton = form.querySelector('.plan-button');
+                    if (submitButton) {
+                        submitButton.disabled = true;
+                    }
+
+                    setTimeout(() => {
+                        const loaderText = loader.querySelector('.loader-text');
+                        if (loaderText) {
+                            loaderText.textContent = 'Пакет уже в вашем доступе';
+                        }
+                        loader.classList.add('success-phase');
+                    }, 5000);
+
+                    setTimeout(() => {
+                        if (telegramApp && typeof telegramApp.close === 'function') {
+                            telegramApp.close();
+                            return;
+                        }
+
+                        window.history.back();
+                    }, 6000);
+                });
+            });
+
+            function applyTelegramTheme(scheme) {
+                const root = document.documentElement;
+                const isDark = scheme === 'dark';
+                root.setAttribute('data-theme', isDark ? 'dark' : 'light');
+
+                const theme = telegramApp?.themeParams || {};
+                const bg = theme.bg_color || (isDark ? '#0f172a' : '#eef4ff');
+                const bg2 = theme.secondary_bg_color || (isDark ? '#111827' : '#f8fbff');
+                const text = theme.text_color || (isDark ? '#e5eefb' : '#0f172a');
+                const muted = theme.hint_color || (isDark ? '#a5b4cf' : '#64748b');
+                const primary = theme.button_color || '#5b5ce6';
+                const primaryStrong = theme.button_text_color || '#4338ca';
+
+                root.style.setProperty('--bg', bg);
+                root.style.setProperty('--bg-2', bg2);
+                root.style.setProperty('--text', text);
+                root.style.setProperty('--muted', muted);
+                root.style.setProperty('--primary', primary);
+                root.style.setProperty('--primary-strong', primaryStrong);
+                root.style.setProperty('--primary-soft', `${primary}1F`);
+            }
 
             if (telegramApp) {
                 telegramApp.ready();
                 telegramApp.expand();
 
-                const theme = telegramApp.themeParams || {};
-                document.documentElement.style.setProperty('--bg', theme.bg_color || '#eef4ff');
-                document.documentElement.style.setProperty('--bg-2', theme.secondary_bg_color || '#f8fbff');
-                document.documentElement.style.setProperty('--text', theme.text_color || '#0f172a');
-                document.documentElement.style.setProperty('--muted', theme.hint_color || '#64748b');
-                document.documentElement.style.setProperty('--primary', theme.button_color || '#5b5ce6');
-                document.documentElement.style.setProperty('--primary-strong', theme.button_text_color || '#4338ca');
-                document.documentElement.style.setProperty('--primary-soft', theme.button_color ? 'rgba(91, 92, 230, 0.12)' : 'rgba(91, 92, 230, 0.12)');
+                const preferredScheme = telegramApp.colorScheme ||
+                    (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+                applyTelegramTheme(preferredScheme);
+                telegramApp.onEvent('themeChanged', () => {
+                    applyTelegramTheme(telegramApp.colorScheme || preferredScheme);
+                });
+            } else {
+                const systemTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                applyTelegramTheme(systemTheme);
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', (event) => {
+                    applyTelegramTheme(event.matches ? 'dark' : 'light');
+                });
             }
         </script>
     </body>

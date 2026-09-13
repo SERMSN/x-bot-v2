@@ -249,7 +249,7 @@ class VinMessageBuilder
     /**
      * @param Collection<int, SubscriptionPlan> $plans
      */
-    public function subscriptionKeyboard(Collection $plans): Keyboard
+    public function subscriptionKeyboard(Collection $plans, ?int $botId = null, ?string $chatId = null): Keyboard
     {
         $buttons = [];
 
@@ -258,8 +258,13 @@ class VinMessageBuilder
                 ->action("subscription_plan_{$plan->id}");
         }
 
+        $miniAppUrl = 'https://x-bot.su/vin-mini-app';
+        if ($botId !== null && $chatId !== null && $chatId !== '') {
+            $miniAppUrl .= '?bot_id=' . urlencode((string) $botId) . '&chat_id=' . urlencode((string) $chatId);
+        }
+
         $buttons[] = Button::make("📱 Mini App")
-            ->webApp('https://x-bot.su/vin-mini-app');
+            ->webApp($miniAppUrl);
 
         $buttons[] = Button::make("🏠 На главную")->action("start");
 
