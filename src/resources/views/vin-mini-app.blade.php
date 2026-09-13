@@ -583,17 +583,12 @@
                         loader.classList.add('success-phase');
 
                         setTimeout(() => {
-                            if (telegramApp && typeof telegramApp.close === 'function') {
-                                telegramApp.close();
+                            if (window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.close === 'function') {
+                                window.Telegram.WebApp.close();
                                 return;
                             }
 
-                            if (window.history.length > 1) {
-                                window.history.back();
-                                return;
-                            }
-
-                            window.location.href = '/';
+                            console.warn('Telegram WebApp is unavailable, so the mini app cannot be closed automatically from the browser.');
                         }, 1800);
                     } catch (error) {
                         if (loaderText) {
@@ -601,17 +596,12 @@
                         }
 
                         setTimeout(() => {
-                            if (telegramApp && typeof telegramApp.close === 'function') {
-                                telegramApp.close();
+                            if (window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.close === 'function') {
+                                window.Telegram.WebApp.close();
                                 return;
                             }
 
-                            if (window.history.length > 1) {
-                                window.history.back();
-                                return;
-                            }
-
-                            window.location.href = '/';
+                            console.warn('Telegram WebApp is unavailable, so the mini app cannot be closed automatically from the browser.');
                         }, 1600);
                     }
                 });

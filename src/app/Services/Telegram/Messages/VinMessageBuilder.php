@@ -197,22 +197,23 @@ class VinMessageBuilder
             : "🚗 <b>VIN отчет</b>";
     }
 
-    public function mainMenuKeyboard(): Keyboard
+    public function mainMenuKeyboard(?int $botId = null, ?string $chatId = null): Keyboard
     {
         return Keyboard::make()
             ->buttons([
                 Button::make("🔍 Проверить VIN")->action("check_vin"),
                 Button::make("❓ Помощь")->action("help"),
-                Button::make("💳 Подписка")->action("subscription"),
+                Button::make("💳 Подписка")->webApp($this->miniAppUrl($botId, $chatId)),
             ])
             ->chunk(2);
     }
 
-    public function helpKeyboard(): Keyboard
+    public function helpKeyboard(?int $botId = null, ?string $chatId = null): Keyboard
     {
         return Keyboard::make()
             ->buttons([
                 Button::make("🔍 Проверить VIN")->action("check_vin"),
+                Button::make("💳 Подписка")->webApp($this->miniAppUrl($botId, $chatId)),
                 Button::make("🏠 На главную")->action("start"),
             ])
             ->chunk(2);
@@ -235,12 +236,12 @@ class VinMessageBuilder
             ->chunk(2);
     }
 
-    public function vinResultKeyboard(bool $fullReportAllowed): Keyboard
+    public function vinResultKeyboard(bool $fullReportAllowed, ?int $botId = null, ?string $chatId = null): Keyboard
     {
         return Keyboard::make()
             ->buttons([
                 Button::make("🔍 Проверить еще")->action("check_vin"),
-                Button::make("💳 Подписка")->action("subscription"),
+                Button::make("💳 Подписка")->webApp($this->miniAppUrl($botId, $chatId)),
                 Button::make("🏠 На главную")->action("start"),
             ])
             ->chunk(2);
@@ -279,6 +280,17 @@ class VinMessageBuilder
                 Button::make("❓ Помощь")->action("help"),
             ])
             ->chunk(2);
+    }
+
+    public function miniAppUrl(?int $botId = null, ?string $chatId = null): string
+    {
+        $url = "https://x-bot.su/vin-mini-app";
+
+        if ($botId !== null && $botId > 0 && $chatId !== null && $chatId !== '') {
+            $url .= "?bot_id=" . urlencode((string) $botId) . "&chat_id=" . urlencode((string) $chatId);
+        }
+
+        return $url;
     }
 
     public function splitLongMessage(string $message): array

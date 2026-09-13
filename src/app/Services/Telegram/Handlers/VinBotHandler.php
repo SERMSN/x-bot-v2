@@ -27,7 +27,10 @@ class VinBotHandler extends WebhookHandler
         $this->chat
             ->markdown($message)
             ->removeReplyKeyboard()
-            ->keyboard($this->messages()->mainMenuKeyboard())
+            ->keyboard($this->messages()->mainMenuKeyboard(
+                (int) $this->bot->id,
+                (string) ($this->chat->chat_id ?? ''),
+            ))
             ->send();
 
         $this->logOutgoing($message, ["handler_action" => "start"]);
@@ -39,7 +42,10 @@ class VinBotHandler extends WebhookHandler
 
         $this->chat
             ->markdown($message)
-            ->keyboard($this->messages()->helpKeyboard())
+            ->keyboard($this->messages()->helpKeyboard(
+                (int) $this->bot->id,
+                (string) ($this->chat->chat_id ?? ''),
+            ))
             ->send();
 
         $this->logOutgoing($message, ["handler_action" => "help"]);
@@ -52,20 +58,24 @@ class VinBotHandler extends WebhookHandler
 
     public function subscription(): void
     {
-        $remaining = $this->subscriptions()->getFullReportsRemaining($this->chat);
-        $plans = $this->subscriptions()->getSubscriptionPlans((int) $this->bot->id);
-        $message = $this->messages()->subscriptionText($remaining);
+        $miniAppUrl = $this->messages()->miniAppUrl(
+            (int) $this->bot->id,
+            (string) ($this->chat->chat_id ?? ''),
+        );
+        $message = "💳 <b>Подписка</b>\n\nОткройте мини-приложение и выберите нужный пакет отчётов.";
 
         $this->chat
             ->html($message)
-            ->keyboard($this->messages()->subscriptionKeyboard(
-                $plans,
-                (int) $this->bot->id,
-                (string) ($this->chat->chat_id ?? ''),
-            ))
+            ->keyboard(
+                \DefStudio\Telegraph\Keyboard\Keyboard::make()
+                    ->buttons([
+                        \DefStudio\Telegraph\Keyboard\Button::make("💳 Открыть Mini App")->webApp($miniAppUrl),
+                    ])
+                    ->chunk(1),
+            )
             ->send();
 
-        $this->logOutgoing($message, ["handler_action" => "subscription"]);
+        $this->logOutgoing($message, ["handler_action" => "subscription_open_mini_app"]);
     }
 
     public function check_vin(): void
@@ -203,9 +213,11 @@ class VinBotHandler extends WebhookHandler
 
         $this->chat
             ->html($this->messages()->vinResultNextText($fullReportAllowed))
-            ->keyboard($this->messages()->vinResultKeyboard($fullReportAllowed))
-            ->send();
-
+                ->keyboard($this->messages()->vinResultKeyboard(
+                    $fullReportAllowed,
+                    (int) $this->bot->id,
+                    (string) ($this->chat->chat_id ?? ''),
+                ))
         $this->logOutgoing($message, ["handler_action" => "process_vin"]);
     }
 
