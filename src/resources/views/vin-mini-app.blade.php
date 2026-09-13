@@ -133,9 +133,9 @@
             }
 
             .summary {
-                display: grid;
-                grid-template-columns: 1.2fr .8fr;
-                gap: 14px;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
                 padding: 18px 18px;
                 border-radius: var(--radius-xl);
                 background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 50%, #5b5ce6 100%);
@@ -171,30 +171,6 @@
                 font-weight: 600;
             }
 
-            .insight {
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                background: rgba(255, 255, 255, 0.08);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 20px;
-                padding: 12px 14px;
-            }
-
-            .insight-value {
-                font-size: 1.3rem;
-                font-weight: 800;
-                letter-spacing: -0.04em;
-            }
-
-            .insight-text {
-                margin-top: 4px;
-                font-size: 0.72rem;
-                opacity: 0.8;
-                text-transform: uppercase;
-                letter-spacing: 0.08em;
-            }
-
             .plans {
                 display: flex;
                 flex-direction: column;
@@ -206,9 +182,9 @@
             .plan-button {
                 position: relative;
                 width: 100%;
-                display: grid;
-                grid-template-columns: 1.5fr auto;
+                display: flex;
                 align-items: center;
+                justify-content: space-between;
                 gap: 18px;
                 border: 1px solid var(--line);
                 background: rgba(255, 255, 255, 0.72);
@@ -250,8 +226,10 @@
             .plan-main {
                 display: flex;
                 flex-direction: column;
-                gap: 8px;
+                justify-content: center;
+                gap: 4px;
                 min-width: 0;
+                flex: 1;
             }
 
             .plan-head {
@@ -292,28 +270,26 @@
 
             .plan-meta {
                 color: var(--muted);
-                font-size: 0.86rem;
+                font-size: 0.8rem;
                 font-weight: 700;
+                line-height: 1.2;
             }
 
             .plan-desc {
-                color: var(--muted);
-                font-size: 0.75rem;
-                line-height: 1.45;
-                max-width: 42ch;
+                display: none;
             }
 
             .price-box {
                 display: flex;
-                flex-direction: column;
-                align-items: flex-end;
-                justify-content: center;
-                gap: 8px;
-                min-width: 136px;
+                align-items: center;
+                justify-content: flex-end;
+                gap: 12px;
+                min-width: 220px;
+                flex-shrink: 0;
             }
 
             .price {
-                font-size: clamp(1.5rem, 4vw, 2rem);
+                font-size: clamp(1.4rem, 4vw, 1.9rem);
                 font-weight: 900;
                 line-height: 1;
                 letter-spacing: -0.06em;
@@ -323,10 +299,10 @@
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                min-width: 100px;
-                padding: 8px 12px;
+                min-width: 92px;
+                padding: 9px 12px;
                 border-radius: 999px;
-                font-size: 0.7rem;
+                font-size: 0.68rem;
                 font-weight: 800;
                 letter-spacing: 0.08em;
                 text-transform: uppercase;
@@ -377,7 +353,6 @@
         <main class="page">
             <div class="shell">
                 <header class="hero">
-                    <span class="badge">VIN Mini App</span>
                     <h1 class="title">Пакеты отчетов</h1>
                     <p class="subtitle">Выберите удобный тариф и откройте полный доступ к подробной информации по VIN. Быстро, безопасно и без лишних действий.</p>
                 </header>
@@ -387,11 +362,6 @@
                         <div class="summary-label">Остаток</div>
                         <div class="summary-value">{{ $reportsRemaining }}</div>
                         <div class="summary-meta">полных VIN-отчетов доступно</div>
-                    </div>
-
-                    <div class="insight">
-                        <div class="insight-value">+ бонус</div>
-                        <div class="insight-text">быстрый доступ</div>
                     </div>
                 </section>
 
@@ -403,7 +373,7 @@
                     @forelse ($plans as $plan)
                         @php
                             $isSelected = $selectedPlanId !== null && (int) $selectedPlanId === (int) $plan->id;
-                            $reportLabel = $plan->report_count === 1 ? 'отчет' : 'отчетов';
+                            $reportLabel = $plan->report_count === 1 ? 'отчет' : 'отчета';
                             $isPopular = (int) $plan->report_count >= 20;
                         @endphp
 
@@ -421,11 +391,6 @@
                                         @endif
                                     </div>
 
-                                    <div class="plan-meta">{{ $plan->report_count }} {{ $reportLabel }}</div>
-
-                                    @if (!empty($plan->description))
-                                        <div class="plan-desc">{{ $plan->description }}</div>
-                                    @endif
                                 </div>
 
                                 <div class="price-box">

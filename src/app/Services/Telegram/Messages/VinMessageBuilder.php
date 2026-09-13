@@ -258,6 +258,9 @@ class VinMessageBuilder
                 ->action("subscription_plan_{$plan->id}");
         }
 
+        $buttons[] = Button::make("📱 Mini App")
+            ->webApp('https://x-bot.su/vin-mini-app');
+
         $buttons[] = Button::make("🏠 На главную")->action("start");
 
         return Keyboard::make()->buttons($buttons)->chunk(2);
