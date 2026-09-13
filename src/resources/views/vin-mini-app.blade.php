@@ -541,6 +541,19 @@
             const telegramApp = window.Telegram && window.Telegram.WebApp;
             const loader = document.getElementById('purchase-loader');
 
+            function closeMiniApp() {
+                if (telegramApp && typeof telegramApp.close === 'function') {
+                    try {
+                        telegramApp.close();
+                        return true;
+                    } catch (error) {
+                        console.warn('Telegram WebApp close failed:', error);
+                    }
+                }
+
+                return false;
+            }
+
             document.querySelectorAll('.plan-form').forEach((form) => {
                 form.addEventListener('submit', async (event) => {
                     event.preventDefault();
@@ -582,27 +595,17 @@
                         }
                         loader.classList.add('success-phase');
 
-                        setTimeout(() => {
-                            if (window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.close === 'function') {
-                                window.Telegram.WebApp.close();
-                                return;
-                            }
-
-                            console.warn('Telegram WebApp is unavailable, so the mini app cannot be closed automatically from the browser.');
-                        }, 1800);
+                        requestAnimationFrame(() => {
+                            closeMiniApp();
+                        });
                     } catch (error) {
                         if (loaderText) {
                             loaderText.textContent = 'Не удалось оформить подписку. Попробуйте ещё раз.';
                         }
 
-                        setTimeout(() => {
-                            if (window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.close === 'function') {
-                                window.Telegram.WebApp.close();
-                                return;
-                            }
-
-                            console.warn('Telegram WebApp is unavailable, so the mini app cannot be closed automatically from the browser.');
-                        }, 1600);
+                        requestAnimationFrame(() => {
+                            closeMiniApp();
+                        });
                     }
                 });
             });
