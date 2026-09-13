@@ -30,6 +30,7 @@ class VinBotHandler extends WebhookHandler
             ->keyboard($this->messages()->mainMenuKeyboard(
                 (int) $this->bot->id,
                 (string) ($this->chat->chat_id ?? ''),
+                $this->subscriptions()->getFullReportsRemaining($this->chat),
             ))
             ->send();
 
@@ -45,6 +46,7 @@ class VinBotHandler extends WebhookHandler
             ->keyboard($this->messages()->helpKeyboard(
                 (int) $this->bot->id,
                 (string) ($this->chat->chat_id ?? ''),
+                $this->subscriptions()->getFullReportsRemaining($this->chat),
             ))
             ->send();
 
@@ -213,6 +215,7 @@ class VinBotHandler extends WebhookHandler
                 $fullReportAllowed,
                 (int) $this->bot->id,
                 (string) ($this->chat->chat_id ?? ''),
+                $this->subscriptions()->getFullReportsRemaining($this->chat),
             ))
             ->send();
 

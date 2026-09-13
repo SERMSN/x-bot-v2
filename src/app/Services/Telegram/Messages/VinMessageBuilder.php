@@ -197,23 +197,23 @@ class VinMessageBuilder
             : "🚗 <b>VIN отчет</b>";
     }
 
-    public function mainMenuKeyboard(?int $botId = null, ?string $chatId = null): Keyboard
+    public function mainMenuKeyboard(?int $botId = null, ?string $chatId = null, ?int $reportsRemaining = null): Keyboard
     {
         return Keyboard::make()
             ->buttons([
                 Button::make("🔍 Проверить VIN")->action("check_vin"),
                 Button::make("❓ Помощь")->action("help"),
-                Button::make("💳 Подписка")->webApp($this->miniAppUrl($botId, $chatId)),
+                Button::make($this->subscriptionButtonLabel($reportsRemaining))->webApp($this->miniAppUrl($botId, $chatId)),
             ])
             ->chunk(2);
     }
 
-    public function helpKeyboard(?int $botId = null, ?string $chatId = null): Keyboard
+    public function helpKeyboard(?int $botId = null, ?string $chatId = null, ?int $reportsRemaining = null): Keyboard
     {
         return Keyboard::make()
             ->buttons([
                 Button::make("🔍 Проверить VIN")->action("check_vin"),
-                Button::make("💳 Подписка")->webApp($this->miniAppUrl($botId, $chatId)),
+                Button::make($this->subscriptionButtonLabel($reportsRemaining))->webApp($this->miniAppUrl($botId, $chatId)),
                 Button::make("🏠 На главную")->action("start"),
             ])
             ->chunk(2);
@@ -236,12 +236,12 @@ class VinMessageBuilder
             ->chunk(2);
     }
 
-    public function vinResultKeyboard(bool $fullReportAllowed, ?int $botId = null, ?string $chatId = null): Keyboard
+    public function vinResultKeyboard(bool $fullReportAllowed, ?int $botId = null, ?string $chatId = null, ?int $reportsRemaining = null): Keyboard
     {
         return Keyboard::make()
             ->buttons([
                 Button::make("🔍 Проверить еще")->action("check_vin"),
-                Button::make("💳 Подписка")->webApp($this->miniAppUrl($botId, $chatId)),
+                Button::make($this->subscriptionButtonLabel($reportsRemaining))->webApp($this->miniAppUrl($botId, $chatId)),
                 Button::make("🏠 На главную")->action("start"),
             ])
             ->chunk(2);
@@ -291,6 +291,13 @@ class VinMessageBuilder
         }
 
         return $url;
+    }
+
+    public function subscriptionButtonLabel(?int $reportsRemaining = null): string
+    {
+        $count = $reportsRemaining ?? 0;
+
+        return "💳 Подписка (" . $count . " отч.)";
     }
 
     public function splitLongMessage(string $message): array
