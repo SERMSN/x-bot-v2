@@ -396,24 +396,16 @@
                 animation: modalIn 0.22s ease;
             }
 
-            .loader-actions {
+            .loader-note {
                 display: none;
                 width: 100%;
                 margin-top: 6px;
-            }
-
-            .close-button {
-                width: 100%;
-                border: none;
-                border-radius: 14px;
-                background: linear-gradient(135deg, var(--primary), var(--primary-strong));
-                color: var(--button-text);
-                font-size: 0.82rem;
-                font-weight: 800;
-                letter-spacing: 0.04em;
-                padding: 12px 14px;
-                cursor: pointer;
-                box-shadow: 0 12px 26px rgba(91, 92, 230, 0.2);
+                padding-top: 8px;
+                border-top: 1px solid var(--line);
+                color: var(--muted);
+                font-size: 0.74rem;
+                line-height: 1.5;
+                font-weight: 700;
             }
 
             .spinner {
@@ -463,7 +455,7 @@
                 display: inline-flex;
             }
 
-            .success-phase .loader-actions {
+            .success-phase .loader-note {
                 display: block;
             }
 
@@ -559,8 +551,8 @@
                 <div class="successful-badge">Готово</div>
                 <div class="loader-text">Проверяем вашу подписку…</div>
 
-                <div class="loader-actions">
-                    <button type="button" id="close-mini-app-button" class="close-button">Вернуться в бота</button>
+                <div class="loader-note">
+                    Вернуться в бота можно через крестик в левом верхнем углу приложения.
                 </div>
             </div>
         </div>
@@ -568,7 +560,6 @@
         <script>
             const telegramApp = window.Telegram && window.Telegram.WebApp;
             const loader = document.getElementById('purchase-loader');
-            const closeMiniAppButton = document.getElementById('close-mini-app-button');
 
             function closeMiniApp() {
                 if (telegramApp && typeof telegramApp.close === 'function') {
@@ -580,14 +571,7 @@
                     }
                 }
 
-                console.warn('Telegram WebApp is unavailable, so the modal can only be closed manually in the browser.');
                 return false;
-            }
-
-            if (closeMiniAppButton) {
-                closeMiniAppButton.addEventListener('click', () => {
-                    closeMiniApp();
-                });
             }
 
             document.querySelectorAll('.plan-form').forEach((form) => {
