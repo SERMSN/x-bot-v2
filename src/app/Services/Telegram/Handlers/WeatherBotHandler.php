@@ -105,6 +105,7 @@ class WeatherBotHandler extends WebhookHandler
                     $this->messages()->shortWeatherUnitsLabel($preferences["units"]),
                     $conversation->isAutoSaveLocationCityEnabled($this->botContext()) ? "вкл" : "выкл",
                     $conversation->isWeatherNotificationsEnabled($this->botContext()) ? "вкл" : "выкл",
+                    $preferences["precipitation_alerts_enabled"] ? "вкл" : "выкл",
                 ),
             )
             ->send();
@@ -257,6 +258,7 @@ class WeatherBotHandler extends WebhookHandler
                     $this->messages()->shortWeatherUnitsLabel($preferences["units"]),
                     $this->conversation()->isAutoSaveLocationCityEnabled($this->botContext()) ? "вкл" : "выкл",
                     $this->conversation()->isWeatherNotificationsEnabled($this->botContext()) ? "вкл" : "выкл",
+                    $preferences["precipitation_alerts_enabled"] ? "вкл" : "выкл",
                 ))
                 ->send();
             $this->logOutgoing($message, [
@@ -397,6 +399,9 @@ class WeatherBotHandler extends WebhookHandler
             case "weather_notifications_menu":
                 $this->weather_notifications_menu();
                 break;
+            case "weather_precipitation_alerts_menu":
+                $this->weather_precipitation_alerts_menu();
+                break;
             case "toggle_weather_notifications":
                 $this->toggle_weather_notifications();
                 break;
@@ -428,8 +433,6 @@ class WeatherBotHandler extends WebhookHandler
             $preferences["notification_time"],
             $preferences["notification_timezone"],
             $notificationMode,
-            $preferences["precipitation_alerts_enabled"],
-            $preferences["precipitation_alert_lead_minutes"],
         );
 
         $this->chat
@@ -439,6 +442,27 @@ class WeatherBotHandler extends WebhookHandler
                     $notificationStatus,
                     $preferences["notification_time"],
                     $notificationMode,
+                ),
+            )
+            ->send();
+
+        $this->logOutgoing($message, [
+            "handler_action" => "weather_notifications_menu",
+        ]);
+    }
+
+    public function weather_precipitation_alerts_menu(): void
+    {
+        $preferences = $this->conversation()->getPreferences($this->botContext());
+        $message = $this->messages()->precipitationAlertsText(
+            $preferences["precipitation_alerts_enabled"],
+            $preferences["precipitation_alert_lead_minutes"],
+        );
+
+        $this->chat
+            ->markdown($message)
+            ->keyboard(
+                $this->messages()->precipitationAlertsKeyboard(
                     $preferences["precipitation_alerts_enabled"],
                     $preferences["precipitation_alert_lead_minutes"],
                 ),
@@ -446,7 +470,7 @@ class WeatherBotHandler extends WebhookHandler
             ->send();
 
         $this->logOutgoing($message, [
-            "handler_action" => "weather_notifications_menu",
+            "handler_action" => "weather_precipitation_alerts_menu",
         ]);
     }
 
@@ -750,7 +774,7 @@ class WeatherBotHandler extends WebhookHandler
 
         $chat->weather_precipitation_alerts_enabled = $enabled;
         $chat->save();
-        $this->weather_notifications_menu();
+        $this->weather_precipitation_alerts_menu();
     }
 
     public function set_weather_precipitation_lead(int $minutes): void
@@ -766,7 +790,7 @@ class WeatherBotHandler extends WebhookHandler
 
         $chat->weather_precipitation_alert_lead_minutes = $minutes;
         $chat->save();
-        $this->weather_notifications_menu();
+        $this->weather_precipitation_alerts_menu();
     }
 
     private function sendWeatherResponse(

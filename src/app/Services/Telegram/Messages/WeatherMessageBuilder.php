@@ -88,8 +88,6 @@ class WeatherMessageBuilder
         string $time,
         string $timezone,
         string $mode,
-        bool $precipitationAlertsEnabled,
-        int $precipitationLeadMinutes,
     ): string {
         return "🔔 *Уведомления*\n\n" .
             "Действие: управление уведомлениями.\n" .
@@ -97,10 +95,15 @@ class WeatherMessageBuilder
             "Время: *{$time}*.\n" .
             "Часовой пояс: *{$timezone}*.\n" .
             "Режим: *{$mode}*.\n" .
-            "Оповещения об осадках: *" . ($precipitationAlertsEnabled ? "вкл" : "выкл") . "*.\n" .
-            "Заранее: *{$this->precipitationLeadLabel($precipitationLeadMinutes)}*.\n\n" .
-            "Для осадков используется прогноз с интервалом около 3 часов.\n\n" .
             "Подсказка: сначала сохраните город, затем включайте уведомления.";
+    }
+
+    public function precipitationAlertsText(bool $enabled, int $leadMinutes): string
+    {
+        return "🌧 *Оповещения об осадках*\n\n" .
+            "Статус: *" . ($enabled ? "вкл" : "выкл") . "*.\n" .
+            "Предупреждать: *{$this->precipitationLeadLabel($leadMinutes)} до начала*.\n\n" .
+            "Прогноз доступен с интервалом около 3 часов, поэтому время приблизительное.";
     }
 
     public function citySavedText(string $savedCity): string
@@ -211,7 +214,13 @@ class WeatherMessageBuilder
         };
     }
 
-    public function settingKeyboard(string $responseMode, string $units, string $autoSaveLabel, string $notificationsLabel): Keyboard
+    public function settingKeyboard(
+        string $responseMode,
+        string $units,
+        string $autoSaveLabel,
+        string $notificationsLabel,
+        string $precipitationAlertsLabel,
+    ): Keyboard
     {
         return Keyboard::make()
             ->buttons([
@@ -220,6 +229,7 @@ class WeatherMessageBuilder
                 Button::make("🌡 Единицы: {$units}")->action("toggle_weather_units"),
                 Button::make("📍 Локация: {$autoSaveLabel}")->action("toggle_auto_save_location_city"),
                 Button::make("🔔 Уведомления: {$notificationsLabel}")->action("weather_notifications_menu"),
+                Button::make("🌧 Осадки: {$precipitationAlertsLabel}")->action("weather_precipitation_alerts_menu"),
                 Button::make("🏠 На главную")->action("start"),
             ])
             ->chunk(2);
@@ -229,23 +239,31 @@ class WeatherMessageBuilder
         string $status,
         string $time,
         string $mode,
-        bool $precipitationAlertsEnabled,
-        int $precipitationLeadMinutes,
     ): Keyboard {
         return Keyboard::make()
             ->buttons([
                 Button::make("🔔 Статус: {$status}")->action("toggle_weather_notifications"),
                 Button::make("🕒 Время: {$time}")->action("set_weather_notification_time"),
                 Button::make("📝 Режим: {$mode}")->action("toggle_weather_notification_mode"),
-                Button::make("🌧 Осадки: " . ($precipitationAlertsEnabled ? "вкл" : "выкл"))
+                Button::make("⚙ Назад")->action("setting"),
+                Button::make("🏠 На главную")->action("start"),
+            ])
+            ->chunk(2);
+    }
+
+    public function precipitationAlertsKeyboard(bool $enabled, int $leadMinutes): Keyboard
+    {
+        return Keyboard::make()
+            ->buttons([
+                Button::make("🌧 Оповещения: " . ($enabled ? "вкл" : "выкл"))
                     ->action("toggle_weather_precipitation_alerts"),
-                Button::make($this->precipitationLeadOptionLabel(30, $precipitationLeadMinutes))
+                Button::make($this->precipitationLeadOptionLabel(30, $leadMinutes))
                     ->action("set_precipitation_lead_30"),
-                Button::make($this->precipitationLeadOptionLabel(60, $precipitationLeadMinutes))
+                Button::make($this->precipitationLeadOptionLabel(60, $leadMinutes))
                     ->action("set_precipitation_lead_60"),
-                Button::make($this->precipitationLeadOptionLabel(120, $precipitationLeadMinutes))
+                Button::make($this->precipitationLeadOptionLabel(120, $leadMinutes))
                     ->action("set_precipitation_lead_120"),
-                Button::make($this->precipitationLeadOptionLabel(180, $precipitationLeadMinutes))
+                Button::make($this->precipitationLeadOptionLabel(180, $leadMinutes))
                     ->action("set_precipitation_lead_180"),
                 Button::make("⚙ Назад")->action("setting"),
                 Button::make("🏠 На главную")->action("start"),
