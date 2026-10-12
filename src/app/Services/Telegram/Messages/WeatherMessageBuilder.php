@@ -197,8 +197,7 @@ class WeatherMessageBuilder
     {
         return function ($keyboard) {
             $keyboard->button("📍 Передать локацию")->requestLocation();
-            $keyboard->oneTime(true);
-            $keyboard->resize(true);
+            $keyboard = $keyboard->oneTime(true)->resize(true);
             return $keyboard;
         };
     }
