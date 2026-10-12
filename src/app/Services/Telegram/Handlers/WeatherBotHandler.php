@@ -639,8 +639,6 @@ class WeatherBotHandler extends WebhookHandler
         $chat->weather_notifications_enabled = !$this->conversation()->isWeatherNotificationsEnabled($this->botContext());
 
         if ($chat->weather_notifications_enabled) {
-            $this->ensureNotificationTimezone($chat);
-
             if ($this->conversation()->normalizeNotificationTimezone($chat->weather_notification_timezone) === null) {
                 $chat->weather_notifications_enabled = false;
 
