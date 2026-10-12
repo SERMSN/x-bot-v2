@@ -337,6 +337,11 @@ class WeatherBotHandler extends WebhookHandler
 
         $action = CallbackAction::parse($callbackData);
 
+        if (preg_match('/^set_precipitation_lead_(30|60|120|180)$/', $action, $matches) === 1) {
+            $this->set_weather_precipitation_lead((int) $matches[1]);
+            return;
+        }
+
         switch ($action) {
             case "get_weather":
                 $this->handleGetWeather();
@@ -401,6 +406,9 @@ class WeatherBotHandler extends WebhookHandler
             case "toggle_weather_notification_mode":
                 $this->toggle_weather_notification_mode();
                 break;
+            case "toggle_weather_precipitation_alerts":
+                $this->toggle_weather_precipitation_alerts();
+                break;
             default:
                 $this->chat->html("Действие: {$callbackData}")->send();
                 $this->logOutgoing("Действие: {$callbackData}", [
@@ -420,6 +428,8 @@ class WeatherBotHandler extends WebhookHandler
             $preferences["notification_time"],
             $preferences["notification_timezone"],
             $notificationMode,
+            $preferences["precipitation_alerts_enabled"],
+            $preferences["precipitation_alert_lead_minutes"],
         );
 
         $this->chat
@@ -429,6 +439,8 @@ class WeatherBotHandler extends WebhookHandler
                     $notificationStatus,
                     $preferences["notification_time"],
                     $notificationMode,
+                    $preferences["precipitation_alerts_enabled"],
+                    $preferences["precipitation_alert_lead_minutes"],
                 ),
             )
             ->send();
@@ -713,6 +725,48 @@ class WeatherBotHandler extends WebhookHandler
         $chat->save();
 
         $this->setting();
+    }
+
+    public function toggle_weather_precipitation_alerts(): void
+    {
+        $chat = $this->conversation()->resolveChatModel($this->botContext());
+        if ($chat === null) {
+            return;
+        }
+
+        $enabled = !(bool) $chat->weather_precipitation_alerts_enabled;
+        if ($enabled) {
+            $savedCity = $this->conversation()->getSavedCity($this->botContext());
+            if ($savedCity === null || $savedCity["timezone"] === null) {
+                $message = "❌ Сначала сохраните город с корректным часовым поясом, чтобы включить оповещения об осадках.";
+                $this->chat->html($message)->send();
+                $this->logOutgoing($message, [
+                    "handler_action" => "toggle_weather_precipitation_alerts",
+                    "is_error" => true,
+                ]);
+                return;
+            }
+        }
+
+        $chat->weather_precipitation_alerts_enabled = $enabled;
+        $chat->save();
+        $this->weather_notifications_menu();
+    }
+
+    public function set_weather_precipitation_lead(int $minutes): void
+    {
+        if (!in_array($minutes, [30, 60, 120, 180], true)) {
+            return;
+        }
+
+        $chat = $this->conversation()->resolveChatModel($this->botContext());
+        if ($chat === null) {
+            return;
+        }
+
+        $chat->weather_precipitation_alert_lead_minutes = $minutes;
+        $chat->save();
+        $this->weather_notifications_menu();
     }
 
     private function sendWeatherResponse(

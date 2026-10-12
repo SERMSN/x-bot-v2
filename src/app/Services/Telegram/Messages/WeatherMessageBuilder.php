@@ -83,14 +83,23 @@ class WeatherMessageBuilder
                 : "Подсказка: по локации или по городу.");
     }
 
-    public function notificationsText(string $status, string $time, string $timezone, string $mode): string
-    {
+    public function notificationsText(
+        string $status,
+        string $time,
+        string $timezone,
+        string $mode,
+        bool $precipitationAlertsEnabled,
+        int $precipitationLeadMinutes,
+    ): string {
         return "🔔 *Уведомления*\n\n" .
             "Действие: управление уведомлениями.\n" .
             "Статус: *{$status}*.\n" .
             "Время: *{$time}*.\n" .
             "Часовой пояс: *{$timezone}*.\n" .
-            "Режим: *{$mode}*.\n\n" .
+            "Режим: *{$mode}*.\n" .
+            "Оповещения об осадках: *" . ($precipitationAlertsEnabled ? "вкл" : "выкл") . "*.\n" .
+            "Заранее: *{$this->precipitationLeadLabel($precipitationLeadMinutes)}*.\n\n" .
+            "Для осадков используется прогноз с интервалом около 3 часов.\n\n" .
             "Подсказка: сначала сохраните город, затем включайте уведомления.";
     }
 
@@ -216,17 +225,49 @@ class WeatherMessageBuilder
             ->chunk(2);
     }
 
-    public function notificationKeyboard(string $status, string $time, string $mode): Keyboard
-    {
+    public function notificationKeyboard(
+        string $status,
+        string $time,
+        string $mode,
+        bool $precipitationAlertsEnabled,
+        int $precipitationLeadMinutes,
+    ): Keyboard {
         return Keyboard::make()
             ->buttons([
                 Button::make("🔔 Статус: {$status}")->action("toggle_weather_notifications"),
                 Button::make("🕒 Время: {$time}")->action("set_weather_notification_time"),
                 Button::make("📝 Режим: {$mode}")->action("toggle_weather_notification_mode"),
+                Button::make("🌧 Осадки: " . ($precipitationAlertsEnabled ? "вкл" : "выкл"))
+                    ->action("toggle_weather_precipitation_alerts"),
+                Button::make($this->precipitationLeadOptionLabel(30, $precipitationLeadMinutes))
+                    ->action("set_precipitation_lead_30"),
+                Button::make($this->precipitationLeadOptionLabel(60, $precipitationLeadMinutes))
+                    ->action("set_precipitation_lead_60"),
+                Button::make($this->precipitationLeadOptionLabel(120, $precipitationLeadMinutes))
+                    ->action("set_precipitation_lead_120"),
+                Button::make($this->precipitationLeadOptionLabel(180, $precipitationLeadMinutes))
+                    ->action("set_precipitation_lead_180"),
                 Button::make("⚙ Назад")->action("setting"),
                 Button::make("🏠 На главную")->action("start"),
             ])
             ->chunk(2);
+    }
+
+    private function precipitationLeadOptionLabel(int $minutes, int $selectedMinutes): string
+    {
+        return $this->precipitationLeadLabel($minutes) .
+            ($minutes === $selectedMinutes ? " ✓" : "");
+    }
+
+    private function precipitationLeadLabel(int $minutes): string
+    {
+        return match ($minutes) {
+            30 => "30 минут",
+            60 => "1 час",
+            120 => "2 часа",
+            180 => "3 часа",
+            default => "1 час",
+        };
     }
 
     public function weatherOptionsKeyboard(?string $savedCity): Keyboard

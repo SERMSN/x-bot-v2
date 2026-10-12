@@ -15,6 +15,7 @@ class WeatherService
 
     public function __construct(
         private readonly WeatherMessageFormatter $messageFormatter,
+        private readonly PrecipitationForecastDetector $precipitationForecastDetector,
     ) {}
 
     private function httpClient()
@@ -170,6 +171,73 @@ class WeatherService
                 );
             },
         );
+    }
+
+    public function getUpcomingPrecipitationAlert(
+        int $botId,
+        float $lat,
+        float $lon,
+        int $leadMinutes,
+        string $units = "metric",
+        ?int $lastNotifiedTimestamp = null,
+    ): ?array {
+        $settings = $this->resolveWeatherOptions([
+            "units" => $units,
+            "response_mode" => "brief",
+        ]);
+        $cacheKey = sprintf(
+            "weather_precipitation_forecast_v1_%d_%s_%s_%s",
+            $botId,
+            $lat,
+            $lon,
+            $settings["units"],
+        );
+        $forecastData = Cache::remember(
+            $cacheKey,
+            now()->addMinutes(3),
+            function () use ($botId, $lat, $lon, $settings) {
+                $config = $this->ensureApiConfig($botId);
+
+                return $this->fetchForecastByCoordinates(
+                    $config,
+                    $lat,
+                    $lon,
+                    $settings["units"],
+                ) ?? false;
+            },
+        );
+
+        if (!is_array($forecastData) || !is_array($forecastData["list"] ?? null)) {
+            return null;
+        }
+
+        $nowTimestamp = now()->timestamp;
+        $event = $this->precipitationForecastDetector->findUpcomingEvent(
+            $forecastData["list"],
+            $leadMinutes,
+            $nowTimestamp,
+            $lastNotifiedTimestamp,
+        );
+
+        if ($event === null) {
+            return null;
+        }
+
+        $timezone = $this->timezoneFromOffset(
+            (int) ($forecastData["city"]["timezone"] ?? 0),
+        );
+        $eventTime = (new \DateTimeImmutable("@" . $event["timestamp"]))
+            ->setTimezone($timezone);
+
+        return [
+            ...$event,
+            "city" => (string) ($forecastData["city"]["name"] ?? ""),
+            "local_time" => $eventTime->format("H:i"),
+            "minutes_until" => max(
+                1,
+                (int) ceil(($event["timestamp"] - $nowTimestamp) / 60),
+            ),
+        ];
     }
 
     public function validateCity(int $botId, string $city): array

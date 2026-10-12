@@ -27,6 +27,9 @@ class TelegraphChat extends BaseTelegraphChat
         "weather_notification_timezone",
         "weather_notification_mode",
         "weather_last_notification_date",
+        "weather_precipitation_alerts_enabled",
+        "weather_precipitation_alert_lead_minutes",
+        "weather_last_precipitation_alert_timestamp",
         "last_weather_query_type",
         "last_weather_query_city",
         "last_weather_query_lat",
@@ -35,6 +38,9 @@ class TelegraphChat extends BaseTelegraphChat
 
     protected $casts = [
         "full_reports_remaining" => "integer",
+        "weather_precipitation_alerts_enabled" => "boolean",
+        "weather_precipitation_alert_lead_minutes" => "integer",
+        "weather_last_precipitation_alert_timestamp" => "integer",
     ];
 
     public function bot(): BelongsTo

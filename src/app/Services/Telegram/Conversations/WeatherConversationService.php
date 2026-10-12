@@ -89,7 +89,16 @@ class WeatherConversationService
             "notification_time" => is_string($chat?->weather_notification_time) ? $chat->weather_notification_time : "08:00",
             "notification_timezone" => is_string($chat?->weather_notification_timezone) ? $chat->weather_notification_timezone : "не определен",
             "notification_mode" => $this->normalizeNotificationMode($chat?->weather_notification_mode),
+            "precipitation_alerts_enabled" => $chat === null ? false : (bool) $chat->weather_precipitation_alerts_enabled,
+            "precipitation_alert_lead_minutes" => $this->normalizePrecipitationLeadMinutes($chat?->weather_precipitation_alert_lead_minutes),
         ];
+    }
+
+    public function normalizePrecipitationLeadMinutes(mixed $minutes): int
+    {
+        $minutes = is_numeric($minutes) ? (int) $minutes : 60;
+
+        return in_array($minutes, [30, 60, 120, 180], true) ? $minutes : 60;
     }
 
     public function isAutoSaveLocationCityEnabled(BotContext $context): bool

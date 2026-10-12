@@ -20,8 +20,15 @@ class SendWeatherNotificationsCommand extends Command
     public function handle(WeatherService $weatherService): int
     {
         $chats = TelegraphChat::query()
-            ->where("weather_notifications_enabled", true)
-            ->whereNotNull("weather_notification_time")
+            ->where(function ($query) {
+                $query
+                    ->where(function ($query) {
+                        $query
+                            ->where("weather_notifications_enabled", true)
+                            ->whereNotNull("weather_notification_time");
+                    })
+                    ->orWhere("weather_precipitation_alerts_enabled", true);
+            })
             ->whereNotNull("weather_city_lat")
             ->whereNotNull("weather_city_lon")
             ->get()
@@ -29,7 +36,11 @@ class SendWeatherNotificationsCommand extends Command
 
         /** @var Collection<int, Collection<int, TelegraphChat>> $chats */
         foreach ($chats as $botId => $botChats) {
-            if (!$this->shouldProcessBot((int) $botId)) {
+            $hasPrecipitationAlerts = $botChats->contains(
+                fn (TelegraphChat $chat) => (bool) $chat->weather_precipitation_alerts_enabled,
+            );
+
+            if (!$this->shouldProcessBot((int) $botId, $hasPrecipitationAlerts)) {
                 Log::info("Weather notifications skipped by bot interval", [
                     "telegraph_bot_id" => (int) $botId,
                 ]);
@@ -48,93 +59,196 @@ class SendWeatherNotificationsCommand extends Command
         TelegraphChat $chat,
         WeatherService $weatherService,
     ): void {
-        try {
-            $timezone = $this->resolveTimezone($chat);
-            if ($timezone === null) {
-                Log::warning(
-                    "Weather notification skipped because timezone is missing",
-                    [
-                        "chat_id" => $chat->id,
-                        "telegraph_bot_id" => $chat->telegraph_bot_id,
-                    ],
-                );
-                return;
-            }
-
-            $now = Carbon::now($timezone);
-            $notificationTime = (string) $chat->weather_notification_time;
-            $scheduledAt = Carbon::createFromFormat(
-                "Y-m-d H:i",
-                $now->format("Y-m-d") . " " . $notificationTime,
-                $timezone,
-            );
-
-            if ($now->lt($scheduledAt)) {
-                Log::info(
-                    "Weather notification skipped before scheduled time",
-                    [
-                        "chat_id" => $chat->id,
-                        "telegraph_bot_id" => $chat->telegraph_bot_id,
-                        "timezone" => $timezone,
-                        "now" => $now->format("Y-m-d H:i"),
-                        "notification_time" => $notificationTime,
-                    ],
-                );
-                return;
-            }
-
-            if (
-                $chat->weather_last_notification_date !== null &&
-                Carbon::parse($chat->weather_last_notification_date)->format(
-                    "Y-m-d",
-                ) === $now->format("Y-m-d")
-            ) {
-                Log::info("Weather notification skipped because already sent", [
+        $timezone = $this->resolveTimezone($chat);
+        if ($timezone === null) {
+            Log::warning(
+                "Weather notification skipped because timezone is missing",
+                [
                     "chat_id" => $chat->id,
                     "telegraph_bot_id" => $chat->telegraph_bot_id,
-                    "date" => $now->format("Y-m-d"),
-                ]);
-                return;
-            }
-
-            $weather = $weatherService->getByCoordinates(
-                (int) $chat->telegraph_bot_id,
-                (float) $chat->weather_city_lat,
-                (float) $chat->weather_city_lon,
-                [
-                    "units" => $this->normalizeUnits($chat->weather_units),
-                    "response_mode" => $this->normalizeNotificationMode(
-                        $chat->weather_notification_mode,
-                    ),
                 ],
             );
+            return;
+        }
 
-            $chat
-                ->html((string) ($weather["text"] ?? "Погода недоступна."))
-                ->send();
+        if ($chat->weather_notifications_enabled) {
+            try {
+                $this->processDailyNotification($chat, $weatherService, $timezone);
+            } catch (\Throwable $e) {
+                Log::error("Weather notification send failed", [
+                    "chat_id" => $chat->id,
+                    "telegraph_bot_id" => $chat->telegraph_bot_id,
+                    "exception" => $e,
+                ]);
+            }
+        }
 
-            $chat->weather_last_notification_date = $now->toDateString();
-            $chat->save();
-
-            Log::info("Weather notification sent", [
-                "chat_id" => $chat->id,
-                "telegraph_bot_id" => $chat->telegraph_bot_id,
-                "timezone" => $timezone,
-                "sent_at" => $now->format("Y-m-d H:i"),
-                "notification_time" => $notificationTime,
-            ]);
-        } catch (\Throwable $e) {
-            Log::error("Weather notification send failed", [
-                "chat_id" => $chat->id,
-                "telegraph_bot_id" => $chat->telegraph_bot_id,
-                "exception" => $e,
-            ]);
+        if ($chat->weather_precipitation_alerts_enabled) {
+            try {
+                $this->processPrecipitationAlert($chat, $weatherService);
+            } catch (\Throwable $e) {
+                Log::error("Weather precipitation alert failed", [
+                    "chat_id" => $chat->id,
+                    "telegraph_bot_id" => $chat->telegraph_bot_id,
+                    "exception" => $e,
+                ]);
+            }
         }
     }
 
-    private function shouldProcessBot(int $botId): bool
+    private function processDailyNotification(
+        TelegraphChat $chat,
+        WeatherService $weatherService,
+        string $timezone,
+    ): void {
+        $now = Carbon::now($timezone);
+        $notificationTime = (string) $chat->weather_notification_time;
+        $scheduledAt = Carbon::createFromFormat(
+            "Y-m-d H:i",
+            $now->format("Y-m-d") . " " . $notificationTime,
+            $timezone,
+        );
+
+        if ($now->lt($scheduledAt)) {
+            Log::info("Weather notification skipped before scheduled time", [
+                "chat_id" => $chat->id,
+                "telegraph_bot_id" => $chat->telegraph_bot_id,
+                "timezone" => $timezone,
+                "now" => $now->format("Y-m-d H:i"),
+                "notification_time" => $notificationTime,
+            ]);
+            return;
+        }
+
+        if (
+            $chat->weather_last_notification_date !== null &&
+            Carbon::parse($chat->weather_last_notification_date)->format(
+                "Y-m-d",
+            ) === $now->format("Y-m-d")
+        ) {
+            Log::info("Weather notification skipped because already sent", [
+                "chat_id" => $chat->id,
+                "telegraph_bot_id" => $chat->telegraph_bot_id,
+                "date" => $now->format("Y-m-d"),
+            ]);
+            return;
+        }
+
+        $weather = $weatherService->getByCoordinates(
+            (int) $chat->telegraph_bot_id,
+            (float) $chat->weather_city_lat,
+            (float) $chat->weather_city_lon,
+            [
+                "units" => $this->normalizeUnits($chat->weather_units),
+                "response_mode" => $this->normalizeNotificationMode(
+                    $chat->weather_notification_mode,
+                ),
+            ],
+        );
+
+        $chat
+            ->html((string) ($weather["text"] ?? "Погода недоступна."))
+            ->send();
+
+        $chat->weather_last_notification_date = $now->toDateString();
+        $chat->save();
+
+        Log::info("Weather notification sent", [
+            "chat_id" => $chat->id,
+            "telegraph_bot_id" => $chat->telegraph_bot_id,
+            "timezone" => $timezone,
+            "sent_at" => $now->format("Y-m-d H:i"),
+            "notification_time" => $notificationTime,
+        ]);
+    }
+
+    private function processPrecipitationAlert(
+        TelegraphChat $chat,
+        WeatherService $weatherService,
+    ): void {
+        $leadMinutes = (int) $chat->weather_precipitation_alert_lead_minutes;
+        if (!in_array($leadMinutes, [30, 60, 120, 180], true)) {
+            $leadMinutes = 60;
+        }
+
+        $event = $weatherService->getUpcomingPrecipitationAlert(
+            (int) $chat->telegraph_bot_id,
+            (float) $chat->weather_city_lat,
+            (float) $chat->weather_city_lon,
+            $leadMinutes,
+            $this->normalizeUnits($chat->weather_units),
+            $chat->weather_last_precipitation_alert_timestamp,
+        );
+
+        if ($event === null) {
+            return;
+        }
+
+        $eventTimestamp = (int) $event["timestamp"];
+        if ($eventTimestamp <= (int) $chat->weather_last_precipitation_alert_timestamp) {
+            Log::info("Weather precipitation alert skipped because already sent", [
+                "chat_id" => $chat->id,
+                "telegraph_bot_id" => $chat->telegraph_bot_id,
+                "forecast_timestamp" => $eventTimestamp,
+            ]);
+            return;
+        }
+
+        $icon = match ($event["type"]) {
+            "снег" => "❄️",
+            "дождь" => "🌧️",
+            default => "☔",
+        };
+        $city = htmlspecialchars(
+            (string) ($event["city"] ?: $chat->weather_city),
+            ENT_QUOTES | ENT_SUBSTITUTE,
+            "UTF-8",
+        );
+        $message = sprintf(
+            "%s <b>Ожидается %s</b>\nГород: %s\nНачало примерно в %s, через %d мин.",
+            $icon,
+            $event["type"],
+            $city,
+            $event["local_time"],
+            $event["minutes_until"],
+        );
+
+        if ($event["probability"] !== null) {
+            $message .= sprintf("\nВероятность: %d%%.", $event["probability"]);
+        }
+
+        if ($event["amount_mm"] !== null) {
+            $message .= sprintf("\nОжидаемое количество за 3 часа: %.1f мм.", $event["amount_mm"]);
+        }
+
+        if ($event["description"] !== "") {
+            $message .= "\n" . htmlspecialchars(
+                $event["description"],
+                ENT_QUOTES | ENT_SUBSTITUTE,
+                "UTF-8",
+            );
+        }
+
+        $chat->html($message)->send();
+
+        $chat->weather_last_precipitation_alert_timestamp = $eventTimestamp;
+        $chat->save();
+
+        Log::info("Weather precipitation alert sent", [
+            "chat_id" => $chat->id,
+            "telegraph_bot_id" => $chat->telegraph_bot_id,
+            "city" => $city,
+            "type" => $event["type"],
+            "lead_minutes" => $leadMinutes,
+            "forecast_timestamp" => $eventTimestamp,
+        ]);
+    }
+
+    private function shouldProcessBot(int $botId, bool $hasPrecipitationAlerts): bool
     {
-        $intervalMinutes = $this->notificationRunIntervalMinutes($botId);
+        $intervalMinutes = $hasPrecipitationAlerts
+            ? 1
+            : $this->notificationRunIntervalMinutes($botId);
         $cacheKey = "weather_notification_last_run_bot_{$botId}";
         $lastRunAt = Cache::get($cacheKey);
         $now = now();
