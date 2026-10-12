@@ -273,6 +273,23 @@ class WeatherMessageBuilder
             ->chunk(2);
     }
 
+    public function weatherViewKeyboard(string $view): Keyboard
+    {
+        $isThreeDays = $view === "three_days";
+
+        return Keyboard::make()
+            ->buttons([
+                Button::make($isThreeDays ? "☀️ Сегодня" : "☀️ Сегодня ✓")
+                    ->action("weather_today"),
+                Button::make($isThreeDays ? "📅 3 дня ✓" : "📅 3 дня")
+                    ->action("weather_three_days"),
+                Button::make("🔄 Обновить")
+                    ->action($isThreeDays ? "refresh_weather_three_days" : "refresh_weather_today"),
+                Button::make("🏠 На главную")->action("start"),
+            ])
+            ->chunk(2);
+    }
+
     public function shortWeatherUnitsLabel(string $units): string
     {
         return $units === "imperial" ? "°F" : "°C";

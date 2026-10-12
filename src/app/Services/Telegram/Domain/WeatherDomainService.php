@@ -27,7 +27,12 @@ class WeatherDomainService
         );
     }
 
-    public function requestWeatherByCoordinates(BotContext $context, float $lat, float $lon): array
+    public function requestWeatherByCoordinates(
+        BotContext $context,
+        float $lat,
+        float $lon,
+        bool $refresh = false,
+    ): array
     {
         if ($lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
             throw new \InvalidArgumentException("Invalid coordinates");
@@ -38,6 +43,7 @@ class WeatherDomainService
             $lat,
             $lon,
             $this->conversationService->getPreferences($context),
+            $refresh,
         );
     }
 

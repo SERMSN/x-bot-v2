@@ -35,6 +35,45 @@ class WeatherMessageFormatter
         return $text;
     }
 
+    public function formatToday(array $payload): string
+    {
+        $todayRows = [];
+
+        foreach ($payload["forecast_sections"] ?? [] as $section) {
+            if (($section["period"] ?? null) !== "today") {
+                continue;
+            }
+
+            foreach ($section["rows"] ?? [] as $row) {
+                $todayRows[] = $this->formatMetricLine(
+                    (string) ($row["time"] ?? ""),
+                    $row["temp"] ?? 0,
+                    (string) ($payload["temperature_unit"] ?? "C"),
+                );
+            }
+        }
+
+        $hourlyForecast = $todayRows === []
+            ? "Почасовой прогноз временно недоступен."
+            : "<pre>" . $this->escapeHtml(implode("\n", $todayRows)) . "</pre>";
+
+        return $this->formatDetailed($payload) .
+            "\n\n🕒 <b>Сегодня, по часам (примерно каждые 3 часа)</b>\n" .
+            $hourlyForecast;
+    }
+
+    public function formatThreeDays(array $payload): string
+    {
+        $dailyForecast = $payload["daily_forecast"] ?? [];
+
+        if (!is_array($dailyForecast) || $dailyForecast === []) {
+            return $this->formatBrief($payload) .
+                "\n\n📅 <b>Прогноз на 3 дня</b>\nПрогноз временно недоступен.";
+        }
+
+        return $this->formatDailyForecast($dailyForecast, $payload);
+    }
+
     private function formatDetailed(array $payload): string
     {
         return sprintf(

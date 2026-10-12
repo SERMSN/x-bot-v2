@@ -11,7 +11,7 @@ class WeatherService
 {
     private const MAX_HOURLY_INTERVALS_PER_DAY = 4;
     private const DAILY_FORECAST_DAYS = 3;
-    private const WEATHER_CACHE_SCHEMA_VERSION = "v3";
+    private const WEATHER_CACHE_SCHEMA_VERSION = "v4";
 
     public function __construct(
         private readonly WeatherMessageFormatter $messageFormatter,
@@ -112,6 +112,7 @@ class WeatherService
         float $lat,
         float $lon,
         array $options = [],
+        bool $refresh = false,
     ): array {
         if ($lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) {
             throw new \InvalidArgumentException("Invalid coordinates");
@@ -128,6 +129,10 @@ class WeatherService
             $settings["units"],
             $settings["response_mode"],
         );
+
+        if ($refresh) {
+            Cache::forget($cacheKey);
+        }
 
         return Cache::remember(
             $cacheKey,
@@ -229,6 +234,8 @@ class WeatherService
 
         return [
             "text" => $this->messageFormatter->format($payload),
+            "today_text" => $this->messageFormatter->formatToday($payload),
+            "three_days_text" => $this->messageFormatter->formatThreeDays($payload),
             "city" => [
                 "name" => (string) ($data["name"] ?? ""),
                 "lat" => isset($data["coord"]["lat"])
@@ -478,6 +485,7 @@ class WeatherService
 
         if ($todayRows !== []) {
             $sections[] = [
+                "period" => "today",
                 "title" => "🕒 До конца дня:",
                 "rows" => array_slice(
                     $todayRows,
@@ -489,6 +497,7 @@ class WeatherService
 
         if ($tomorrowRows !== []) {
             $sections[] = [
+                "period" => "tomorrow",
                 "title" => sprintf(
                     "📅 Завтра, %s:",
                     $tomorrowStartLocal->format("d.m"),

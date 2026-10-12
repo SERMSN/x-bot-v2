@@ -295,7 +295,7 @@ class WeatherBotHandler extends WebhookHandler
             );
 
             $this->sendWeatherResponse(
-                $weather["text"] ?? $this->messages()->weatherNotAvailableText(),
+                $weather["today_text"] ?? $weather["text"] ?? $this->messages()->weatherNotAvailableText(),
                 null,
                 false,
             );
@@ -367,6 +367,18 @@ class WeatherBotHandler extends WebhookHandler
                 break;
             case "refresh_weather":
                 $this->refresh_weather();
+                break;
+            case "weather_today":
+                $this->showLastWeatherView("today", "weather_today");
+                break;
+            case "weather_three_days":
+                $this->showLastWeatherView("three_days", "weather_three_days");
+                break;
+            case "refresh_weather_today":
+                $this->showLastWeatherView("today", "refresh_weather", true);
+                break;
+            case "refresh_weather_three_days":
+                $this->showLastWeatherView("three_days", "refresh_weather", true);
                 break;
             case "toggle_weather_mode":
                 $this->toggle_weather_mode();
@@ -456,17 +468,15 @@ class WeatherBotHandler extends WebhookHandler
 
         try {
             $weather = $this->domain()->requestWeatherByCoordinates($this->botContext(), $lat, $lon);
-            if ($this->conversation()->isAutoSaveLocationCityEnabled($this->botContext())) {
-                $this->conversation()->rememberLastWeatherQuery(
-                    $this->botContext(),
-                    self::LAST_QUERY_TYPE_COORDINATES,
-                    $lat,
-                    $lon,
-                    (string) ($weather["city"]["name"] ?? null),
-                );
-            }
+            $this->conversation()->rememberLastWeatherQuery(
+                $this->botContext(),
+                self::LAST_QUERY_TYPE_COORDINATES,
+                $lat,
+                $lon,
+                (string) ($weather["city"]["name"] ?? null),
+            );
             $this->sendWeatherResponse(
-                $weather["text"] ?? $this->messages()->weatherNotAvailableText(),
+                $weather["today_text"] ?? $weather["text"] ?? $this->messages()->weatherNotAvailableText(),
                 null,
                 true,
             );
@@ -524,7 +534,7 @@ class WeatherBotHandler extends WebhookHandler
                 (string) $savedCity["name"],
             );
             $this->sendWeatherResponse(
-                $weather["text"] ?? $this->messages()->weatherNotAvailableText(),
+                $weather["today_text"] ?? $weather["text"] ?? $this->messages()->weatherNotAvailableText(),
                 null,
                 false,
             );
@@ -541,6 +551,14 @@ class WeatherBotHandler extends WebhookHandler
 
     public function refresh_weather(): void
     {
+        $this->showLastWeatherView("today", "refresh_weather", true);
+    }
+
+    private function showLastWeatherView(
+        string $view,
+        string $handlerAction,
+        bool $refresh = false,
+    ): void {
         $lastQuery = $this->conversation()->getLastWeatherQuery($this->botContext());
         if ($lastQuery === null) {
             $message = $this->messages()->noLastQueryText();
@@ -557,17 +575,22 @@ class WeatherBotHandler extends WebhookHandler
                 $this->botContext(),
                 (float) $lastQuery["lat"],
                 (float) $lastQuery["lon"],
+                $refresh,
             );
             $this->sendWeatherResponse(
-                $weather["text"] ?? $this->messages()->weatherNotAvailableText(),
+                $this->weatherViewText($weather, $view),
                 null,
                 false,
+                $view,
             );
         } catch (\Throwable $e) {
-            Log::error("WeatherService refresh error", ["exception" => $e]);
+            Log::error("WeatherService forecast view error", [
+                "handler_action" => $handlerAction,
+                "exception" => $e,
+            ]);
             $this->sendWeatherFailure(
                 $this->messages()->retryRefreshText(),
-                "refresh_weather",
+                $handlerAction,
             );
         }
     }
@@ -696,6 +719,7 @@ class WeatherBotHandler extends WebhookHandler
         string $text,
         ?string $image,
         bool $removeReplyKeyboard,
+        string $view = "today",
     ): void {
         try {
             if ($image) {
@@ -704,7 +728,7 @@ class WeatherBotHandler extends WebhookHandler
                 $send = $this->chat->html($text);
             }
 
-            $send = $send->keyboard($this->messages()->weatherAndHomeKeyboard());
+            $send = $send->keyboard($this->messages()->weatherViewKeyboard($view));
 
             $send->send();
             $this->logOutgoing($text, [
@@ -720,7 +744,7 @@ class WeatherBotHandler extends WebhookHandler
             $fallbackText = trim(html_entity_decode(strip_tags($text)));
             $send = $this->chat->message($fallbackText);
             if (method_exists($send, "keyboard")) {
-                $send = $send->keyboard($this->messages()->weatherAndHomeKeyboard());
+                $send = $send->keyboard($this->messages()->weatherViewKeyboard($view));
             }
             $send->send();
             $this->logOutgoing($fallbackText, [
@@ -730,6 +754,13 @@ class WeatherBotHandler extends WebhookHandler
                 "send_error" => $e->getMessage(),
             ]);
         }
+    }
+
+    private function weatherViewText(array $weather, string $view): string
+    {
+        $key = $view === "three_days" ? "three_days_text" : "today_text";
+
+        return (string) ($weather[$key] ?? $weather["text"] ?? $this->messages()->weatherNotAvailableText());
     }
 
     private function logOutgoing(string $message, array $meta = []): void
