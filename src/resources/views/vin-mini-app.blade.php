@@ -578,14 +578,6 @@
             }
 
             async function loadVerifiedContext() {
-                if (!telegramApp?.initData) {
-                    const status = document.getElementById('reports-status');
-                    if (status) {
-                        status.textContent = 'Откройте приложение из Telegram';
-                    }
-                    return;
-                }
-
                 try {
                     const response = await fetch('{{ route('vin-mini-app.context') }}', {
                         method: 'POST',
@@ -597,7 +589,6 @@
                         body: JSON.stringify({
                             bot_id: @json((string) request('bot_id')),
                             chat_id: @json((string) request('chat_id')),
-                            init_data: telegramApp.initData,
                         }),
                     });
                     const payload = await response.json().catch(() => ({}));
@@ -633,13 +624,9 @@
                     const submitButton = form.querySelector('.plan-button');
                     const loaderText = loader.querySelector('.loader-text');
                     const formData = new FormData(form);
-                    if (!telegramApp?.initData) {
-                        if (loaderText) {
-                            loaderText.textContent = 'Откройте приложение из Telegram и повторите попытку.';
-                        }
-                        return;
+                    if (telegramApp?.initData) {
+                        formData.set('init_data', telegramApp.initData);
                     }
-                    formData.set('init_data', telegramApp.initData);
 
                     loader.classList.remove('success-phase');
                     loader.classList.add('visible');
