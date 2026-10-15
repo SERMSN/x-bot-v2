@@ -275,19 +275,7 @@ class WeatherBotHandler extends WebhookHandler
         try {
             $validation = $this->domain()->validateCity($this->botContext(), $input);
             $weather = $this->domain()->requestWeatherByValidatedCity($this->botContext(), $validation);
-            $timezone = $this->domain()->resolveNotificationTimezoneByCoordinates(
-                $this->botContext(),
-                (float) ($validation["lat"] ?? 0),
-                (float) ($validation["lon"] ?? 0),
-            );
             $savedCity = (string) ($validation["display_name"] ?? $validation["name"]);
-            $this->conversation()->saveCity(
-                $this->botContext(),
-                $savedCity,
-                (float) ($validation["lat"] ?? 0),
-                (float) ($validation["lon"] ?? 0),
-                $timezone,
-            );
             $this->conversation()->rememberLastWeatherQuery(
                 $this->botContext(),
                 self::LAST_QUERY_TYPE_COORDINATES,
@@ -504,6 +492,15 @@ class WeatherBotHandler extends WebhookHandler
 
         try {
             $weather = $this->domain()->requestWeatherByCoordinates($this->botContext(), $lat, $lon);
+            if ($this->conversation()->isAutoSaveLocationCityEnabled($this->botContext())) {
+                $this->conversation()->saveCity(
+                    $this->botContext(),
+                    (string) ($weather["city"]["name"] ?? ""),
+                    $lat,
+                    $lon,
+                    $weather["city"]["timezone"] ?? null,
+                );
+            }
             $this->conversation()->rememberLastWeatherQuery(
                 $this->botContext(),
                 self::LAST_QUERY_TYPE_COORDINATES,
@@ -806,6 +803,10 @@ class WeatherBotHandler extends WebhookHandler
                 $send = $this->chat->html($text);
             }
 
+            if ($removeReplyKeyboard) {
+                $send = $send->removeReplyKeyboard();
+            }
+
             $send = $send->keyboard($this->messages()->weatherViewKeyboard($view));
 
             $send->send();
@@ -821,6 +822,9 @@ class WeatherBotHandler extends WebhookHandler
 
             $fallbackText = trim(html_entity_decode(strip_tags($text)));
             $send = $this->chat->message($fallbackText);
+            if ($removeReplyKeyboard && method_exists($send, "removeReplyKeyboard")) {
+                $send = $send->removeReplyKeyboard();
+            }
             if (method_exists($send, "keyboard")) {
                 $send = $send->keyboard($this->messages()->weatherViewKeyboard($view));
             }
