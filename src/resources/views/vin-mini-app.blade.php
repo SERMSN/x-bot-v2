@@ -5,6 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <title>VIN Mini App</title>
+        <script src="https://telegram.org/js/telegram-web-app.js"></script>
         <style>
             :root {
                 --bg: #eef4ff;
@@ -511,7 +512,7 @@
                     <div class="summary-left">
                         <div class="summary-label">Остаток</div>
                         <div class="summary-value" id="reports-remaining">{{ $reportsRemaining }}</div>
-                        <div class="summary-meta">полных VIN-отчетов доступно</div>
+                        <div class="summary-meta" id="reports-status">полных VIN-отчетов доступно</div>
                     </div>
                 </section>
 
@@ -578,6 +579,10 @@
 
             async function loadVerifiedContext() {
                 if (!telegramApp?.initData) {
+                    const status = document.getElementById('reports-status');
+                    if (status) {
+                        status.textContent = 'Откройте приложение из Telegram';
+                    }
                     return;
                 }
 
@@ -601,9 +606,18 @@
                         if (balance) {
                             balance.textContent = payload.reports_remaining;
                         }
+                    } else {
+                        const status = document.getElementById('reports-status');
+                        if (status) {
+                            status.textContent = 'Не удалось загрузить остаток отчетов';
+                        }
                     }
                 } catch (error) {
                     console.warn('VIN Mini App context failed:', error);
+                    const status = document.getElementById('reports-status');
+                    if (status) {
+                        status.textContent = 'Не удалось загрузить остаток отчетов';
+                    }
                 }
             }
 
@@ -619,9 +633,13 @@
                     const submitButton = form.querySelector('.plan-button');
                     const loaderText = loader.querySelector('.loader-text');
                     const formData = new FormData(form);
-                    if (telegramApp?.initData) {
-                        formData.set('init_data', telegramApp.initData);
+                    if (!telegramApp?.initData) {
+                        if (loaderText) {
+                            loaderText.textContent = 'Откройте приложение из Telegram и повторите попытку.';
+                        }
+                        return;
                     }
+                    formData.set('init_data', telegramApp.initData);
 
                     loader.classList.remove('success-phase');
                     loader.classList.add('visible');
@@ -656,6 +674,10 @@
                     } catch (error) {
                         if (loaderText) {
                             loaderText.textContent = 'Не удалось оформить пакет. Попробуйте ещё раз.';
+                        }
+                        loader.classList.remove('visible', 'success-phase');
+                        if (submitButton) {
+                            submitButton.disabled = false;
                         }
                     }
                 });
