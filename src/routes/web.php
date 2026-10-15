@@ -15,5 +15,8 @@ Route::post("/telegram/{token}", [
 Route::get("/vin-mini-app", [VinMiniAppController::class, "index"])
     ->name("vin-mini-app");
 
+Route::post("/vin-mini-app/context", [VinMiniAppController::class, "context"])
+    ->name("vin-mini-app.context");
+
 Route::post("/vin-mini-app", [VinMiniAppController::class, "purchase"])
     ->name("vin-mini-app.purchase");

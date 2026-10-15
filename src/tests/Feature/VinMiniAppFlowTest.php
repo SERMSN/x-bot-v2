@@ -36,10 +36,21 @@ class VinMiniAppFlowTest extends TestCase
             'sort_order' => 1,
         ]);
 
+        $authDate = (string) time();
+        $initData = http_build_query([
+            'auth_date' => $authDate,
+            'user' => json_encode(['id' => 123456], JSON_THROW_ON_ERROR),
+        ]);
+        $checkString = "auth_date={$authDate}\nuser=" . json_encode(['id' => 123456], JSON_THROW_ON_ERROR);
+        $secretKey = hash_hmac('sha256', 'WebAppData', 'test-token', true);
+        $hash = hash_hmac('sha256', $checkString, $secretKey);
+        $initData .= '&hash=' . $hash;
+
         $this->post(route('vin-mini-app.purchase'), [
             'plan_id' => $plan->id,
             'bot_id' => $bot->id,
             'chat_id' => $chat->chat_id,
+            'init_data' => $initData,
         ])->assertRedirect();
 
         $chat->refresh();

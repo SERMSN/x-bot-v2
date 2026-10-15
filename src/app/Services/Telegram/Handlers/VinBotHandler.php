@@ -172,16 +172,22 @@ class VinBotHandler extends WebhookHandler
             /** @var VinService $vinService */
             $vinService = app(VinService::class);
             $carData = $vinService->decode((int) $this->bot->id, $vin);
-            $consumeResult = app(ReportBalanceService::class)->consumeFullReport(
-                $this->chat,
-                (int) $this->bot->id,
-                $vin,
-                $carData,
-            );
-            $fullReportAllowed = $consumeResult !== null;
-            $remainingAfterUse = $fullReportAllowed
-                ? (int) $consumeResult["after"]
-                : $this->subscriptions()->getFullReportsRemaining($this->chat);
+            $apiHasError = ($carData["error_code"] ?? "0") !== "0";
+
+            if (!$apiHasError) {
+                $consumeResult = app(ReportBalanceService::class)->consumeFullReport(
+                    $this->chat,
+                    (int) $this->bot->id,
+                    $vin,
+                    $carData,
+                );
+                $fullReportAllowed = $consumeResult !== null;
+                $remainingAfterUse = $fullReportAllowed
+                    ? (int) $consumeResult["after"]
+                    : $this->subscriptions()->getFullReportsRemaining($this->chat);
+            } else {
+                $remainingAfterUse = $this->subscriptions()->getFullReportsRemaining($this->chat);
+            }
 
             $message = $this->messages()->vinResultText(
                 $carData,
@@ -193,7 +199,7 @@ class VinBotHandler extends WebhookHandler
                 $this->sendMakeLogo($carData);
             }
 
-            if (($carData["error_code"] ?? "") !== "0") {
+            if ($apiHasError) {
                 $message .=
                     "\n\n⚠️ API сообщило: <b>" .
                     $this->messages()->escapeHtml((string) ($carData["error_text"] ?? "")) .

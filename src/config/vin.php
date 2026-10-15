@@ -13,4 +13,7 @@ return [
     "validation" => [
         "length" => env("VIN_LENGTH", 17),
     ],
+    "web_app" => [
+        "init_data_ttl_seconds" => env("VIN_WEB_APP_INIT_DATA_TTL_SECONDS", 86400),
+    ],
 ];

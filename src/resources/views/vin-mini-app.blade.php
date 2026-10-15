@@ -3,6 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="csrf-token" content="{{ csrf_token() }}">
         <title>VIN Mini App</title>
         <style>
             :root {
@@ -503,13 +504,13 @@
             <div class="shell">
                 <header class="hero">
                     <h1 class="title">Пакеты отчетов</h1>
-                    <p class="subtitle">Выберите удобный тариф и откройте полный доступ к подробной информации по VIN. Быстро, безопасно и без лишних действий.</p>
+                    <p class="subtitle">Выберите пакет отчетов для доступа к полной информации по VIN.</p>
                 </header>
 
                 <section class="summary" aria-label="Остаток отчетов">
                     <div class="summary-left">
                         <div class="summary-label">Остаток</div>
-                        <div class="summary-value">{{ $reportsRemaining }}</div>
+                        <div class="summary-value" id="reports-remaining">{{ $reportsRemaining }}</div>
                         <div class="summary-meta">полных VIN-отчетов доступно</div>
                     </div>
                 </section>
@@ -525,6 +526,7 @@
                             <input type="hidden" name="plan_id" value="{{ $plan->id }}">
                             <input type="hidden" name="bot_id" value="{{ request('bot_id') }}">
                             <input type="hidden" name="chat_id" value="{{ request('chat_id') }}">
+                            <input type="hidden" name="init_data" value="">
                             <button type="submit" class="plan-button {{ $isSelected ? 'selected' : '' }}">
                                 <div class="plan-main">
                                     <div class="plan-head">
@@ -549,7 +551,7 @@
             <div class="loader-card">
                 <div class="spinner"></div>
                 <div class="successful-badge">Готово</div>
-                <div class="loader-text">Проверяем вашу подписку…</div>
+                <div class="loader-text">Проверяем пакет отчетов…</div>
 
                 <div class="loader-note">
                     Вернуться в бота можно через крестик в левом верхнем углу приложения.
@@ -574,6 +576,37 @@
                 return false;
             }
 
+            async function loadVerifiedContext() {
+                if (!telegramApp?.initData) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch('{{ route('vin-mini-app.context') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                        },
+                        body: JSON.stringify({
+                            bot_id: @json((string) request('bot_id')),
+                            chat_id: @json((string) request('chat_id')),
+                            init_data: telegramApp.initData,
+                        }),
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (response.ok && payload.success) {
+                        const balance = document.getElementById('reports-remaining');
+                        if (balance) {
+                            balance.textContent = payload.reports_remaining;
+                        }
+                    }
+                } catch (error) {
+                    console.warn('VIN Mini App context failed:', error);
+                }
+            }
+
             document.querySelectorAll('.plan-form').forEach((form) => {
                 form.addEventListener('submit', async (event) => {
                     event.preventDefault();
@@ -586,6 +619,9 @@
                     const submitButton = form.querySelector('.plan-button');
                     const loaderText = loader.querySelector('.loader-text');
                     const formData = new FormData(form);
+                    if (telegramApp?.initData) {
+                        formData.set('init_data', telegramApp.initData);
+                    }
 
                     loader.classList.remove('success-phase');
                     loader.classList.add('visible');
@@ -614,9 +650,12 @@
                             loaderText.textContent = `Пакет ${payload.report_count || 0} уже в вашем доступе`;
                         }
                         loader.classList.add('success-phase');
+                        window.setTimeout(() => {
+                            closeMiniApp();
+                        }, 900);
                     } catch (error) {
                         if (loaderText) {
-                            loaderText.textContent = 'Не удалось оформить подписку. Попробуйте ещё раз.';
+                            loaderText.textContent = 'Не удалось оформить пакет. Попробуйте ещё раз.';
                         }
                     }
                 });
@@ -655,6 +694,7 @@
                 telegramApp.onEvent('themeChanged', () => {
                     applyTelegramTheme(telegramApp.colorScheme || preferredScheme);
                 });
+                loadVerifiedContext();
             } else {
                 const systemTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
                 applyTelegramTheme(systemTheme);

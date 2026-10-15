@@ -14,9 +14,8 @@ class VinMessageBuilder
 
     public function startText(): string
     {
-        return "🚗 *VIN-бот*\n\n" .
-            "Действие: проверка VIN.\n" .
-            "Подсказка: нажмите кнопку и отправьте VIN из 17 символов.";
+        return "🚗 *VIN-декодер*\n\n" .
+            "Отправьте VIN из 17 символов, чтобы получить данные автомобиля.";
     }
 
     public function helpText(): string
@@ -26,48 +25,39 @@ class VinMessageBuilder
             "/start — Главное меню\n" .
             "/help — Справка\n" .
             "/vin — Ввести VIN\n" .
-            "/subscription — Подписка\n\n" .
-            "Формат VIN: 17 символов (A-Z, 0-9, без I/O/Q).\n" .
-            "Пример: *JHMCM56557C404453*.\n" .
-            "Для отмены отправьте: *Отмена*.\n\n" .
-            "📋 *Что можно получить по VIN*\n" .
-            "• Основное: VIN, марка, модель, год, тип ТС, кузов, привод.\n" .
-            "• Двигатель и трансмиссия: тип двигателя, объем, производитель, топливо, коробка, число передач, экостандарт, расход, CO2.\n" .
-            "• Производитель: название, адрес, страна сборки.\n" .
-            "• Кузов и размеры: двери, места, колеса, оси, база, высота, длина, ширина, колея.\n" .
-            "• Масса и эксплуатация: скорость, масса, нагрузка на крышу, разрешенная масса прицепа.\n" .
-            "• Ходовая и оснащение: ABS, тормоза, подвеска, рулевое управление, диски, шины.\n" .
-            "• VIN-данные: Vehicle ID, контрольная цифра, серийный номер.\n\n" .
-            "Фактический набор зависит от того, какие поля Vincario вернет по конкретному VIN.\n\n" .
-            "Подписка: /subscription.";
+            "/subscription — Пакеты отчетов\n\n" .
+            "VIN должен содержать 17 символов: A-Z и 0-9, без I/O/Q.\n\n" .
+            "Бесплатно доступны: VIN, марка, модель и год выпуска.\n" .
+            "Полный отчет содержит дополнительные данные и списывается с баланса отчетов.\n\n" .
+            "Для отмены отправьте: *Отмена*.";
     }
 
     public function promptVinInputText(): string
     {
         return "🚗 *Проверка VIN-номера*\n\n" .
-            "Действие: отправьте VIN.\n" .
-            "Подсказка: 17 символов, пример *JHMCM56557C404453*.\n" .
+            "Отправьте VIN из 17 символов.\n" .
+            "Пробелы и дефисы можно не удалять.\n" .
             "Для отмены отправьте: *Отмена*.";
     }
 
     public function invalidVinText(): string
     {
         return "❌ *Некорректный VIN*\n\n" .
-            "Действие: введите VIN повторно.\n" .
-            "Подсказка: используйте 17 символов без I/O/Q.";
+            "VIN должен содержать 17 символов.\n" .
+            "Буквы I, O и Q не используются.\n\n" .
+            "Отправьте VIN еще раз.";
     }
 
     public function subscriptionText(int $remaining): string
     {
-        return "💳 <b>Подписка</b>\n\n" .
-            "Действие: пополнение полного отчета.\n" .
-            "Осталось полных отчетов: <b>{$remaining}</b>\n" .
-            "Подсказка: выберите пакет ниже. Платежная часть пока заглушка.";
+        return "💳 <b>Пакеты отчетов</b>\n\n" .
+            "Баланс полных отчетов: <b>{$remaining}</b>.\n" .
+            "Выберите пакет ниже. Оплата пока работает в тестовом режиме.";
     }
 
     public function subscriptionPlanMissingText(): string
     {
-        return "💳 <b>Подписка</b>\n\nВыбранный пакет не найден или неактивен.";
+        return "💳 <b>Пакеты отчетов</b>\n\nВыбранный пакет недоступен.";
     }
 
     public function subscriptionPlanPurchasedText(SubscriptionPlan $plan, int $before, int $after): string
@@ -75,13 +65,13 @@ class VinMessageBuilder
         $count = (int) $plan->report_count;
         $price = number_format((float) $plan->price_rub, 0, ",", " ");
 
-        return "💳 <b>Подписка</b>\n\n" .
+        return "💳 <b>Пакет отчетов</b>\n\n" .
             "Выбран пакет: <b>" .
             $this->escapeHtml((string) $plan->name) .
             "</b>\n" .
             "Количество отчетов: <b>{$count}</b>\n" .
             "Стоимость: <b>{$price} ₽</b>\n\n" .
-            "Подписка зачислена в тестовом режиме.\n" .
+            "Пакет зачислен в тестовом режиме.\n" .
             "Баланс отчетов: <b>{$before}</b> → <b>{$after}</b>.";
     }
 
@@ -89,8 +79,8 @@ class VinMessageBuilder
     {
         $message = "✅ <b>Результат VIN-проверки</b>\n\n";
         $message .= $fullReportAllowed
-            ? "Доступен полный отчет. Осталось после списания: <b>{$remainingAfterUse}</b>\n\n"
-            : "Бесплатный режим. Полный отчет доступен по подписке.\n\n";
+            ? "Полный отчет. Баланс: <b>{$remainingAfterUse}</b>\n\n"
+            : "Базовые данные. Дополнительные поля доступны из баланса отчетов.\n\n";
 
         $sections = $carData["sections"] ?? [];
         if (!is_array($sections) || $sections === []) {
@@ -131,8 +121,8 @@ class VinMessageBuilder
     {
         $message = "✅ <b>Результат VIN-проверки</b>\n\n";
         $message .= $fullReportAllowed
-            ? "Доступен полный отчет. Осталось после списания: <b>{$remainingAfterUse}</b>\n\n"
-            : "Бесплатный режим. Полный отчет доступен по подписке.\n\n";
+            ? "Полный отчет. Баланс: <b>{$remainingAfterUse}</b>\n\n"
+            : "Базовые данные. Дополнительные поля доступны из баланса отчетов.\n\n";
 
         $fields = [
             "VIN" => $carData["vin"] ?? "-",
@@ -175,9 +165,7 @@ class VinMessageBuilder
 
     public function vinResultNextText(bool $fullReportAllowed): string
     {
-        return $fullReportAllowed
-            ? "Дальше: полный отчет использован, можно проверить VIN еще раз или перейти в подписку."
-            : "Дальше: можно проверить VIN еще раз или перейти в подписку.";
+        return "Выберите следующее действие.";
     }
 
     public function vinFailureText(): string
@@ -297,7 +285,7 @@ class VinMessageBuilder
     {
         $count = $reportsRemaining ?? 0;
 
-        return "💳 Подписка (" . $count . " отч.)";
+        return "💳 Пакеты (" . $count . " отч.)";
     }
 
     public function splitLongMessage(string $message): array
