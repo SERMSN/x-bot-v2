@@ -2,10 +2,8 @@
 
 namespace App\Services\Telegram\Messages;
 
-use App\Models\SubscriptionPlan;
 use DefStudio\Telegraph\Keyboard\Button;
 use DefStudio\Telegraph\Keyboard\Keyboard;
-use Illuminate\Support\Collection;
 
 class VinMessageBuilder
 {
@@ -24,8 +22,7 @@ class VinMessageBuilder
             "Команды:\n" .
             "/start — Главное меню\n" .
             "/help — Справка\n" .
-            "/vin — Ввести VIN\n" .
-            "/subscription — Пакеты отчетов\n\n" .
+            "/vin — Ввести VIN\n\n" .
             "VIN должен содержать 17 символов: A-Z и 0-9, без I/O/Q.\n\n" .
             "Бесплатно доступны: VIN, марка, модель и год выпуска.\n" .
             "Полный отчет содержит дополнительные данные и списывается с баланса отчетов.\n\n" .
@@ -46,33 +43,6 @@ class VinMessageBuilder
             "VIN должен содержать 17 символов.\n" .
             "Буквы I, O и Q не используются.\n\n" .
             "Отправьте VIN еще раз.";
-    }
-
-    public function subscriptionText(int $remaining): string
-    {
-        return "💳 <b>Пакеты отчетов</b>\n\n" .
-            "Баланс полных отчетов: <b>{$remaining}</b>.\n" .
-            "Выберите пакет ниже. Оплата пока работает в тестовом режиме.";
-    }
-
-    public function subscriptionPlanMissingText(): string
-    {
-        return "💳 <b>Пакеты отчетов</b>\n\nВыбранный пакет недоступен.";
-    }
-
-    public function subscriptionPlanPurchasedText(SubscriptionPlan $plan, int $before, int $after): string
-    {
-        $count = (int) $plan->report_count;
-        $price = number_format((float) $plan->price_rub, 0, ",", " ");
-
-        return "💳 <b>Пакет отчетов</b>\n\n" .
-            "Выбран пакет: <b>" .
-            $this->escapeHtml((string) $plan->name) .
-            "</b>\n" .
-            "Количество отчетов: <b>{$count}</b>\n" .
-            "Стоимость: <b>{$price} ₽</b>\n\n" .
-            "Пакет зачислен в тестовом режиме.\n" .
-            "Баланс отчетов: <b>{$before}</b> → <b>{$after}</b>.";
     }
 
     public function vinResultText(array $carData, bool $fullReportAllowed, int $remainingAfterUse): string
@@ -235,31 +205,6 @@ class VinMessageBuilder
             ->chunk(2);
     }
 
-    /**
-     * @param Collection<int, SubscriptionPlan> $plans
-     */
-    public function subscriptionKeyboard(Collection $plans, ?int $botId = null, ?string $chatId = null): Keyboard
-    {
-        $buttons = [];
-
-        foreach ($plans as $plan) {
-            $buttons[] = Button::make($this->subscriptionPlanLabel($plan))
-                ->action("subscription_plan_{$plan->id}");
-        }
-
-        $miniAppUrl = 'https://x-bot.su/vin-mini-app';
-        if ($botId !== null && $chatId !== null && $chatId !== '') {
-            $miniAppUrl .= '?bot_id=' . urlencode((string) $botId) . '&chat_id=' . urlencode((string) $chatId);
-        }
-
-        $buttons[] = Button::make("📱 Mini App")
-            ->webApp($miniAppUrl);
-
-        $buttons[] = Button::make("🏠 На главную")->action("start");
-
-        return Keyboard::make()->buttons($buttons)->chunk(2);
-    }
-
     public function unknownCommandKeyboard(): Keyboard
     {
         return Keyboard::make()
@@ -322,15 +267,6 @@ class VinMessageBuilder
     public function escapeHtml(string $value): string
     {
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, "UTF-8");
-    }
-
-    private function subscriptionPlanLabel(SubscriptionPlan $plan): string
-    {
-        $count = (int) $plan->report_count;
-        $suffix = $count === 1 ? "отчет" : "отчетов";
-        $price = number_format((float) $plan->price_rub, 0, ",", " ");
-
-        return "{$count} {$suffix} = {$price}р";
     }
 
     private function shouldRevealField(string $label, bool $fullReportAllowed): bool

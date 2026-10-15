@@ -58,24 +58,6 @@ class VinBotHandler extends WebhookHandler
         $this->promptVinInput();
     }
 
-    public function subscription(): void
-    {
-        $remaining = $this->subscriptions()->getFullReportsRemaining($this->chat);
-        $plans = $this->subscriptions()->getSubscriptionPlans((int) $this->bot->id);
-        $message = $this->messages()->subscriptionText($remaining);
-
-        $this->chat
-            ->html($message)
-            ->keyboard($this->messages()->subscriptionKeyboard(
-                $plans,
-                (int) $this->bot->id,
-                (string) ($this->chat->chat_id ?? ''),
-            ))
-            ->send();
-
-        $this->logOutgoing($message, ["handler_action" => "subscription"]);
-    }
-
     public function check_vin(): void
     {
         $this->promptVinInput();
@@ -140,20 +122,10 @@ class VinBotHandler extends WebhookHandler
             $action,
             [
                 "check_vin" => fn () => $this->promptVinInput(),
-                "subscription" => fn () => $this->subscription(),
                 "help" => fn () => $this->help(),
                 "start" => fn () => $this->start(),
             ],
             function (string $action): void {
-                if (str_starts_with($action, "subscription_plan_")) {
-                    $planId = (int) substr(
-                        $action,
-                        strlen("subscription_plan_"),
-                    );
-                    $this->subscriptionPlan($planId);
-                    return;
-                }
-
                 $this->chat->html("Действие: {$action}")->send();
                 $this->logOutgoing("Действие: {$action}", [
                     "handler_action" => "unknown_callback",
@@ -317,66 +289,6 @@ class VinBotHandler extends WebhookHandler
             ]);
             return null;
         }
-    }
-
-    private function subscriptionPlan(int $planId): void
-    {
-        $botId = (int) $this->bot->id;
-        $plan = $this->subscriptions()->findSubscriptionPlan($botId, $planId);
-
-        if (!$plan) {
-            $plans = $this->subscriptions()->getSubscriptionPlans($botId);
-            $message = $this->messages()->subscriptionPlanMissingText();
-
-            $this->chat
-                ->html($message)
-                ->keyboard($this->messages()->subscriptionKeyboard($plans))
-                ->send();
-
-            $this->logOutgoing($message, [
-                "handler_action" => "subscription_plan_missing",
-                "plan_id" => $planId,
-            ]);
-
-            return;
-        }
-
-        $count = (int) $plan->report_count;
-        $purchase = $this->subscriptions()->simulatePurchase($this->chat, $botId, $plan);
-        $before = (int) $purchase["before"];
-        $after = (int) $purchase["after"];
-        $message = $this->messages()->subscriptionPlanPurchasedText($plan, $before, $after);
-
-        $this->chat
-            ->html($message)
-            ->keyboard(
-                $this->messages()->subscriptionKeyboard(
-                    $this->subscriptions()->getSubscriptionPlans($botId),
-                ),
-            )
-            ->send();
-
-        $this->logOutgoing($message, [
-            "handler_action" => "subscription_plan",
-            "plan_id" => $plan->id,
-            "report_count" => $count,
-            "price_rub" => (float) $plan->price_rub,
-            "full_reports_before" => $before,
-            "full_reports_after" => $after,
-        ]);
-
-        Log::info("VIN subscription simulated purchase", [
-            "bot_id" => $botId,
-            "chat_model_id" => isset($this->chat->id) ? (int) $this->chat->id : null,
-            "telegram_chat_id" => isset($this->chat->chat_id)
-                ? (string) $this->chat->chat_id
-                : null,
-            "plan_id" => $plan->id,
-            "report_count" => $count,
-            "price_rub" => (float) $plan->price_rub,
-            "before" => $before,
-            "after" => $after,
-        ]);
     }
 
     public function handleUnknownCommand(Stringable $text): void
