@@ -13,6 +13,13 @@ return [
     "validation" => [
         "length" => env("VIN_LENGTH", 17),
     ],
+    "ocr" => [
+        "binary" => env("VIN_OCR_BINARY", "tesseract"),
+        "timeout_seconds" => env("VIN_OCR_TIMEOUT_SECONDS", 20),
+        "max_image_size_mb" => env("VIN_OCR_MAX_IMAGE_SIZE_MB", 10),
+        "confirmation_ttl_minutes" => env("VIN_OCR_CONFIRMATION_TTL_MINUTES", 5),
+        "rate_limit_seconds" => env("VIN_OCR_RATE_LIMIT_SECONDS", 10),
+    ],
     "web_app" => [
         "init_data_ttl_seconds" => env("VIN_WEB_APP_INIT_DATA_TTL_SECONDS", 86400),
     ],

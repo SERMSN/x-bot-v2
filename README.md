@@ -150,11 +150,20 @@ docker-compose exec php php artisan migrate
 - бесплатный режим показывает только `VIN`, `Марка`, `Модель`, `Год модели`;
 - полный отчет доступен по счетчику полных отчетов на чат;
 - пакеты отчетов и пополнение баланса доступны через Mini App.
+- VIN можно отправить текстом или фотографией; распознавание фото выполняется локально через Tesseract, и найденный номер нужно подтвердить перед проверкой.
 
 Зависимости:
 - `VIN_API_BASE_URL`, например `https://api.vincario.com/3.2`
 - `VIN_API_KEY`
 - `VIN_API_SECRET_KEY`
+- бинарник `tesseract` в окружении, где запущен Laravel.
+
+Для Docker пересоберите PHP-образ после добавления Tesseract:
+
+```bash
+docker-compose up -d --build php
+docker-compose exec -T php tesseract --version
+```
 
 ### Divination bot
 Возможности:

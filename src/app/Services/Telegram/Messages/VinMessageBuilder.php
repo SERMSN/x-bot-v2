@@ -13,7 +13,7 @@ class VinMessageBuilder
     public function startText(): string
     {
         return "🚗 *VIN-декодер*\n\n" .
-            "Отправьте VIN из 17 символов, чтобы получить данные автомобиля.";
+            "Отправьте VIN из 17 символов текстом или пришлите четкое фото номера.";
     }
 
     public function helpText(): string
@@ -32,7 +32,8 @@ class VinMessageBuilder
     public function promptVinInputText(): string
     {
         return "🚗 *Проверка VIN-номера*\n\n" .
-            "Отправьте VIN из 17 символов.\n" .
+            "Отправьте VIN из 17 символов текстом или пришлите четкое фото номера.\n" .
+            "Распознанный с фото номер нужно будет подтвердить.\n" .
             "Пробелы и дефисы можно не удалять.\n" .
             "Для отмены отправьте: *Отмена*.";
     }
@@ -43,6 +44,37 @@ class VinMessageBuilder
             "VIN должен содержать 17 символов.\n" .
             "Буквы I, O и Q не используются.\n\n" .
             "Отправьте VIN еще раз.";
+    }
+
+    public function photoVinCandidateText(string $vin): string
+    {
+        return "🔎 Найден VIN: <code>{$this->escapeHtml($vin)}</code>\n\n" .
+            "Проверьте символы на фото и подтвердите номер перед проверкой.";
+    }
+
+    public function photoVinNotFoundText(): string
+    {
+        return "Не удалось уверенно распознать VIN на фото.\n\n" .
+            "Пришлите более четкое фото или отправьте VIN текстом.";
+    }
+
+    public function photoVinExpiredText(): string
+    {
+        return "Срок подтверждения VIN истек. Отправьте фото или VIN заново.";
+    }
+
+    public function photoVinConfirmationKeyboard(string $token): Keyboard
+    {
+        return Keyboard::make()
+            ->buttons([
+                Button::make("✅ Подтвердить VIN")
+                    ->action("confirm_photo_vin")
+                    ->param("token", $token),
+                Button::make("✏️ Ввести вручную")
+                    ->action("cancel_photo_vin")
+                    ->param("token", $token),
+            ])
+            ->chunk(2);
     }
 
     public function vinResultText(array $carData, bool $fullReportAllowed, int $remainingAfterUse): string
