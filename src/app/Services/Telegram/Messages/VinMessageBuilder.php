@@ -31,11 +31,9 @@ class VinMessageBuilder
 
     public function promptVinInputText(): string
     {
-        return "🔎 *Проверка VIN*\n\n" .
-            "Пришлите VIN одним из способов:\n" .
-            "• текстом — 17 символов\n" .
-            "• фото маркировки с VIN\n\n" .
-            "Распознанный с фото номер сначала попрошу подтвердить.\n";
+        return "🔎 *Проверка VIN-номера*\n\n" .
+            "Отправьте VIN из 17 символов текстом или пришлите четкое фото номера.\n\n" .
+            "📷 Если VIN распознан на фото, сначала попросим вас подтвердить номер.\n\n" .;
     }
 
     public function invalidVinText(): string

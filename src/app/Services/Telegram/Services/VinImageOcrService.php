@@ -2,7 +2,8 @@
 
 namespace App\Services\Telegram\Services;
 
-use Symfony\Component\Process\Process;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Facades\Http;
 
 class VinImageOcrService
 {
@@ -12,21 +13,31 @@ class VinImageOcrService
 
     public function recognize(string $imagePath): ?string
     {
-        $process = new Process([
-            (string) config('vin.ocr.binary', 'tesseract'),
-            $imagePath,
-            'stdout',
-            '-l',
-            'eng',
-            '--psm',
-            '11',
-            '-c',
-            'tessedit_char_whitelist=' . self::VIN_CHAR_WHITELIST,
-        ]);
-        $process->setTimeout((float) config('vin.ocr.timeout_seconds', 20));
-        $process->mustRun();
+        $handle = fopen($imagePath, 'rb');
 
-        return $this->extractVinCandidate($process->getOutput());
+        if ($handle === false) {
+            throw new \RuntimeException('Unable to open VIN image for OCR.');
+        }
+
+        try {
+            $response = $this->ocrRequest()
+                ->attach('image', $handle, basename($imagePath))
+                ->post('/ocr');
+
+            $response->throw();
+
+            return $this->extractVinCandidate((string) $response->json('text', ''));
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    private function ocrRequest(): PendingRequest
+    {
+        return Http::baseUrl((string) config('vin.ocr.url'))
+            ->acceptJson()
+            ->connectTimeout((float) config('vin.ocr.connect_timeout_seconds', 3))
+            ->timeout((float) config('vin.ocr.timeout_seconds', 30));
     }
 
     public function extractVinCandidate(string $text): ?string
