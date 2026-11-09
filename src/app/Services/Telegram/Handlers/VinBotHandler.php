@@ -13,7 +13,6 @@ use DefStudio\Telegraph\Handlers\WebhookHandler;
 use Illuminate\Support\Stringable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use App\Services\Telegram\Services\VinService;
@@ -162,7 +161,7 @@ class VinBotHandler extends WebhookHandler
             !Cache::add(
                 $rateLimitKey,
                 true,
-                now()->addSeconds((int) config('vin.ocr.rate_limit_seconds', 10)),
+                now()->addSeconds((int) config('vin.photo.rate_limit_seconds', 10)),
             )
         ) {
             $this->chat->html('Подождите немного перед отправкой следующего фото VIN.')->send();
@@ -178,40 +177,7 @@ class VinBotHandler extends WebhookHandler
             return;
         }
 
-        $maximumBytes = (int) config('vin.ocr.max_image_size_mb', 10) * 1024 * 1024;
-        if (($photo->filesize() ?? 0) > $maximumBytes) {
-            $this->chat->html('Фото слишком большое. Отправьте изображение размером до 10 МБ.')->send();
-            return;
-        }
-
-        $imagePath = null;
-
-        try {
-            $directory = storage_path('app/private/vin-ocr');
-            $imagePath = $this->bot->store($photo, $directory, Str::uuid() . '.jpg');
-
-            if (filesize($imagePath) > $maximumBytes) {
-                throw new \RuntimeException('VIN photo exceeds the configured size limit.');
-            }
-
-            $vin = app(VinImageOcrService::class)->recognize($imagePath);
-        } catch (\Throwable $exception) {
-            Log::warning('VIN photo OCR failed', [
-                'bot_id' => (int) $this->bot->id,
-                'chat_id' => $this->chat->chat_id ?? null,
-                'error' => $exception->getMessage(),
-            ]);
-            $vin = null;
-        } finally {
-            if (is_string($imagePath) && is_file($imagePath)) {
-                File::delete($imagePath);
-            }
-        }
-
-        if ($vin === null) {
-            $this->sendPhotoVinNotFound();
-            return;
-        }
+        $vin = app(VinImageOcrService::class)->recognize();
 
         $cacheKey = $this->pendingPhotoVinCacheKey();
         if ($cacheKey === null) {
@@ -226,7 +192,7 @@ class VinBotHandler extends WebhookHandler
                 'vin' => $vin,
                 'token' => $confirmationToken,
             ],
-            now()->addMinutes((int) config('vin.ocr.confirmation_ttl_minutes', 5)),
+            now()->addMinutes((int) config('vin.photo.confirmation_ttl_minutes', 5)),
         );
 
         $message = $this->messages()->photoVinCandidateText($vin);

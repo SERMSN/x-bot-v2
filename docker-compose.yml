@@ -18,16 +18,6 @@ services:
       - ./src:/var/www
     depends_on:
       - mysql
-      - paddleocr
-  # PaddleOCR Service
-  paddleocr:
-    build: ./.docker/paddleocr
-    volumes:
-      - paddleocr_models:/root/.paddleocr
-    expose:
-      - "8000"
-    restart: unless-stopped
-  # MySQL
   mysql:
     image: mysql:8.4
     environment:
@@ -49,4 +39,3 @@ services:
 # Volumes
 volumes:
   mysqldataxbot:
-  paddleocr_models:
