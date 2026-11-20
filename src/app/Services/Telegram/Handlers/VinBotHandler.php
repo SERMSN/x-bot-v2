@@ -178,7 +178,23 @@ class VinBotHandler extends WebhookHandler
             return;
         }
 
-        $vin = app(VinImageOcrService::class)->recognize();
+        try {
+            $recognition = app(VinImageOcrService::class)->recognizePhoto(
+                $this->bot,
+                $photo,
+            );
+        } catch (\Throwable $e) {
+            Log::error('VIN photo recognition failed', [
+                'bot_id' => (int) $this->bot->id,
+                'exception' => $e->getMessage(),
+            ]);
+            $recognition = null;
+        }
+
+        if ($recognition === null) {
+            $this->sendPhotoVinNotFound();
+            return;
+        }
 
         $cacheKey = $this->pendingPhotoVinCacheKey();
         if ($cacheKey === null) {
@@ -190,19 +206,24 @@ class VinBotHandler extends WebhookHandler
         Cache::put(
             $cacheKey,
             [
-                'vin' => $vin,
+                'vin' => $recognition->vin,
                 'token' => $confirmationToken,
             ],
             now()->addMinutes((int) config('vin.photo.confirmation_ttl_minutes', 5)),
         );
 
-        $message = $this->messages()->photoVinCandidateText($vin);
+        $message = $this->messages()->photoVinCandidateText(
+            $recognition->vin,
+            $recognition->confidence,
+        );
         $this->chat
             ->html($message)
             ->keyboard($this->messages()->photoVinConfirmationKeyboard($confirmationToken))
             ->send();
         $this->logOutgoing('VIN photo candidate presented for confirmation', [
             'handler_action' => 'vin_photo_candidate',
+            'confidence' => $recognition->confidence,
+            'alternatives_count' => count($recognition->alternatives),
         ]);
     }
 

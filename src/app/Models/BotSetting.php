@@ -18,6 +18,7 @@ class BotSetting extends Model
     public const KEY_VIN_API_BASE_URL = "VIN_API_BASE_URL";
     public const KEY_VIN_API_KEY = "VIN_API_KEY";
     public const KEY_VIN_API_SECRET_KEY = "VIN_API_SECRET_KEY";
+    public const KEY_DEEPSEEK_API_KEY = "DEEPSEEK_API_KEY";
 
     protected $table = "bot_settings";
 
@@ -30,6 +31,7 @@ class BotSetting extends Model
             if ($botId) {
                 Cache::forget("bot_settings_openweather_{$botId}");
                 Cache::forget("vin_settings_{$botId}");
+                Cache::forget("vin_vision_api_key_{$botId}");
                 Cache::forget("weather_notification_settings_{$botId}");
             }
         };

@@ -63,13 +63,18 @@ X-Bot v2 — Laravel 12 приложение для управления нес�
 - `VIN_CACHE_TTL_MINUTES`
 - `VIN_SETTINGS_CACHE_TTL_MINUTES`
 - `VIN_LENGTH`
+- `DEEPSEEK_API_KEY`
+- `DEEPSEEK_BASE_URL`
+- `DEEPSEEK_VISION_MODEL`
+- `VIN_VISION_*`
 - `PUBLIC_ASSETS_PATH`
 - `HOSTING`
 
 Важно:
 - в `config/telegraph.php` кастомный webhook handler задан как `App\Services\Telegram\Handlers\Handler`;
 - модели Telegraph переопределены на `App\Models\TelegramBot` и `App\Models\TelegraphChat`;
-- реальные ключи для OpenWeather и Vincario VIN API ожидаются в таблице `bot_settings`, а не в `config/services.php`.
+- реальные ключи для OpenWeather и Vincario VIN API ожидаются в таблице `bot_settings`, а не в `config/services.php`;
+- для DeepSeek Vision ключ можно задать в `.env` (`DEEPSEEK_API_KEY`) или в `bot_settings` (`DEEPSEEK_API_KEY`) для конкретного бота.
 
 ## Структура проекта
 ```text
@@ -175,6 +180,7 @@ x-bot-v2/
   - `VIN_API_KEY`
   - `VIN_API_SECRET_KEY`
   - `VIN_API_DECODE_URL` (legacy)
+  - `DEEPSEEK_API_KEY` (распознавание VIN по фото)
 
 ### `App\Models\SubscriptionPlan`
 - Таблица: `subscription_plans`
@@ -285,6 +291,8 @@ x-bot-v2/
 - Возможности:
   - проверка формата VIN;
   - нормализация ввода;
+  - распознавание VIN по фотографии через DeepSeek Vision;
+  - обязательное подтверждение распознанного VIN пользователем;
   - запрос к внешнему VIN API через `VinService`;
   - бесплатный режим показывает только `VIN`, `Марка`, `Модель`, `Год модели`;
   - остальные поля маскируются `**********`;
@@ -296,6 +304,7 @@ x-bot-v2/
   - обработка ошибок API.
 - Архитектура:
   - `VinBotHandler` принимает Telegram events;
+  - `VinImageOcrService` скачивает фото из Telegram, отправляет его в DeepSeek Vision и валидирует JSON-ответ;
   - `VinMessageBuilder` формирует тексты и кнопки;
   - `VinSubscriptionService` управляет тарифами и покупкой отчетов;
   - `ReportBalanceService` отвечает за атомарное списание баланса;
@@ -459,5 +468,6 @@ x-bot-v2/
 - Вебхук проектно идет через `TelegramWebhookController`, хотя в `telegraph.php` также указан handler.
 - Для корректной работы weather-бота на каждого бота должны быть заведены `OPENWEATHER_API_KEY` и `OPENWEATHER_API_URL` в `bot_settings`.
 - Для VIN-бота на каждого бота должны быть заданы `VIN_API_BASE_URL`, `VIN_API_KEY` и `VIN_API_SECRET_KEY` в `bot_settings`.
+- Для распознавания VIN по фото нужен `DEEPSEEK_API_KEY` в `.env` или `bot_settings`; без ключа фото-режим вернет сообщение о неудачном распознавании.
 - Публичная страница и публичная Filament main-панель описывают три бота: погода, VIN и оракул.
 - В боте-оракуле есть два сценария: короткое предсказание и карта предсказания с обязательным локальным изображением и толкованием.

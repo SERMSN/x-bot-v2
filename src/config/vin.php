@@ -20,4 +20,16 @@ return [
     "web_app" => [
         "init_data_ttl_seconds" => env("VIN_WEB_APP_INIT_DATA_TTL_SECONDS", 86400),
     ],
+    "vision" => [
+        "enabled" => env("VIN_VISION_ENABLED", true),
+        "api_key" => env("DEEPSEEK_API_KEY"),
+        "base_url" => env("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
+        "model" => env("DEEPSEEK_VISION_MODEL", "deepseek-flash"),
+        "timeout_seconds" => env("VIN_VISION_TIMEOUT_SECONDS", 20),
+        "retries" => env("VIN_VISION_RETRIES", 2),
+        "retry_sleep_ms" => env("VIN_VISION_RETRY_SLEEP_MS", 300),
+        "max_tokens" => env("VIN_VISION_MAX_TOKENS", 400),
+        "max_image_mb" => env("VIN_VISION_MAX_IMAGE_MB", 10),
+        "min_confidence" => env("VIN_VISION_MIN_CONFIDENCE", 0.5),
+    ],
 ];

@@ -65,8 +65,11 @@ nano .env
 - `DB_USERNAME=...`
 - `DB_PASSWORD="..."` (в кавычках, если есть спецсимволы, например `#`)
 - `TELEGRAPH_WEBHOOK_SECRET=<secret>` (если используется)
+- `DEEPSEEK_API_KEY=<key>` — для распознавания VIN по фото (либо ключ в `bot_settings`)
+- `VIN_VISION_ENABLED=true`
 - если `PUBLIC_ASSETS_PATH` не задан, divination-карты будут искать в Laravel `public_path()`;
 - если путь задан, он должен быть непустым абсолютным путем к публичной директории.
+- после изменения `.env` выполните `php artisan optimize:clear && php artisan config:cache`.
 
 Инициализация:
 

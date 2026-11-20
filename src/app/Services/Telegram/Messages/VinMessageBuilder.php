@@ -44,10 +44,21 @@ class VinMessageBuilder
             "Отправьте VIN еще раз.";
     }
 
-    public function photoVinCandidateText(string $vin): string
+    public function photoVinCandidateText(string $vin, ?float $confidence = null): string
     {
-        return "🔎 Найден VIN: <code>{$this->escapeHtml($vin)}</code>\n\n" .
+        $message = "🔎 Найден VIN: <code>{$this->escapeHtml($vin)}</code>\n\n" .
             "Проверьте символы на фото и подтвердите номер перед проверкой.";
+
+        if ($confidence !== null) {
+            $percent = (int) round(max(0.0, min(1.0, $confidence)) * 100);
+            $message .= "\n\nУверенность распознавания: <b>{$percent}%</b>.";
+
+            if ($confidence < (float) config("vin.vision.min_confidence", 0.5)) {
+                $message .= "\n⚠️ Уверенность низкая: проверьте каждый символ особенно внимательно.";
+            }
+        }
+
+        return $message;
     }
 
     public function photoVinNotFoundText(): string

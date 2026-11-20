@@ -26,6 +26,8 @@ class BotSettingForm
                     BotSetting::KEY_VIN_API_BASE_URL => "Vincario API base URL",
                     BotSetting::KEY_VIN_API_KEY => "Vincario API key",
                     BotSetting::KEY_VIN_API_SECRET_KEY => "Vincario secret key",
+                    BotSetting::KEY_DEEPSEEK_API_KEY =>
+                        "DeepSeek API key (распознавание VIN по фото)",
                 ])
                 ->searchable()
                 ->native(false)
@@ -57,6 +59,7 @@ class BotSettingForm
                 BotSetting::KEY_OPENWEATHER_API_KEY,
                 BotSetting::KEY_VIN_API_KEY,
                 BotSetting::KEY_VIN_API_SECRET_KEY,
+                BotSetting::KEY_DEEPSEEK_API_KEY,
             ],
             true,
         );
