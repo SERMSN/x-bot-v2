@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx="35%" cy="18%" r="92%">
+      <stop offset="0%" stop-color="#1D3557"/>
+      <stop offset="55%" stop-color="#0B1D33"/>
+      <stop offset="100%" stop-color="#06111F"/>
+    </radialGradient>
+    <mask id="moon">
+      <rect width="1024" height="1024" fill="black"/>
+      <circle cx="600" cy="360" r="160" fill="white"/>
+      <circle cx="665" cy="315" r="150" fill="black"/>
+    </mask>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <circle cx="512" cy="512" r="360" fill="none" stroke="#E9C46A" stroke-width="4" opacity="0.16"/>
+  <circle cx="600" cy="360" r="160" fill="#F4E9D8" mask="url(#moon)"/>
+  <circle cx="740" cy="230" r="7" fill="#F4E9D8" opacity="0.9"/>
+  <circle cx="790" cy="280" r="4" fill="#E9C46A" opacity="0.8"/>
+  <path d="M 180 670 C 280 600 360 740 460 670 C 560 600 640 740 740 670 C 790 635 820 645 844 670" fill="none" stroke="#2A9D8F" stroke-width="34" stroke-linecap="round"/>
+  <path d="M 220 760 C 320 700 400 820 500 760 C 600 700 680 820 780 760" fill="none" stroke="#E9C46A" stroke-width="10" stroke-linecap="round" opacity="0.35"/>
+</svg>

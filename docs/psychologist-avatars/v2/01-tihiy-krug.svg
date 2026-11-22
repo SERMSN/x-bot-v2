@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx="32%" cy="24%" r="86%">
+      <stop offset="0%" stop-color="#FFF7EF"/>
+      <stop offset="55%" stop-color="#F2CDB8"/>
+      <stop offset="100%" stop-color="#D98B70"/>
+    </radialGradient>
+    <radialGradient id="soft" cx="42%" cy="38%" r="62%">
+      <stop offset="0%" stop-color="#FFFDF9" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#FFF3E8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <circle cx="512" cy="512" r="360" fill="url(#soft)"/>
+  <circle cx="512" cy="512" r="300" fill="none" stroke="#7C2D12" stroke-width="5" opacity="0.18"/>
+  <circle cx="512" cy="512" r="236" fill="none" stroke="#7C2D12" stroke-width="16" opacity="0.85"/>
+  <circle cx="512" cy="512" r="170" fill="none" stroke="#7C2D12" stroke-width="4" opacity="0.28"/>
+  <circle cx="512" cy="512" r="28" fill="#7C2D12"/>
+  <circle cx="503" cy="503" r="8" fill="#FFF7EF" opacity="0.55"/>
+  <path d="M 512 212 A 300 300 0 0 1 812 512" fill="none" stroke="#FFF7EF" stroke-width="7" opacity="0.55" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx="32%" cy="22%" r="88%">
+      <stop offset="0%" stop-color="#FFF9F1"/>
+      <stop offset="60%" stop-color="#F2E3D2"/>
+      <stop offset="100%" stop-color="#D9BDA2"/>
+    </radialGradient>
+    <linearGradient id="arch" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9A3412"/>
+      <stop offset="100%" stop-color="#6B2B14"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <circle cx="512" cy="512" r="360" fill="#FFFFFF" opacity="0.16"/>
+  <path d="M 292 760 L 292 470 C 292 350 390 260 512 260 C 634 260 732 350 732 470 L 732 760 Z" fill="none" stroke="url(#arch)" stroke-width="34" stroke-linejoin="round"/>
+  <path d="M 340 760 L 340 478 C 340 382 414 312 512 312 C 610 312 684 382 684 478 L 684 760 Z" fill="#F4C95D" opacity="0.14"/>
+  <circle cx="512" cy="520" r="72" fill="#F4C95D" opacity="0.16"/>
+  <circle cx="512" cy="520" r="34" fill="#F4C95D"/>
+  <path d="M 230 824 C 340 794 430 840 512 824 C 594 808 684 854 794 824" fill="none" stroke="#6B2B14" stroke-width="8" opacity="0.25" stroke-linecap="round"/>
+</svg>
