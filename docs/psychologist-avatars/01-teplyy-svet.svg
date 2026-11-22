@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx="35%" cy="25%" r="85%">
+      <stop offset="0%" stop-color="#FFF1E6"/>
+      <stop offset="55%" stop-color="#F7C6AE"/>
+      <stop offset="100%" stop-color="#E78B6B"/>
+    </radialGradient>
+    <radialGradient id="orb" cx="40%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#FFFDF8"/>
+      <stop offset="60%" stop-color="#FFE8C9"/>
+      <stop offset="100%" stop-color="#F4B183"/>
+    </radialGradient>
+    <linearGradient id="bowl" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9A3412" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#7C2D12" stop-opacity="0.95"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <circle cx="512" cy="512" r="390" fill="#FFF7EF" opacity="0.18"/>
+  <path d="M 255 585 C 255 760 370 840 512 840 C 654 840 769 760 769 585 C 700 690 615 735 512 735 C 409 735 324 690 255 585 Z" fill="url(#bowl)"/>
+  <path d="M 255 585 C 255 760 370 840 512 840 C 654 840 769 760 769 585" fill="none" stroke="#FFF7EF" stroke-width="14" stroke-linecap="round" opacity="0.35"/>
+  <circle cx="512" cy="500" r="130" fill="#F4B183" opacity="0.25"/>
+  <circle cx="512" cy="500" r="92" fill="url(#orb)"/>
+  <circle cx="480" cy="470" r="20" fill="#FFFFFF" opacity="0.75"/>
+  <path d="M 512 500 C 512 500 455 450 455 405 C 455 370 482 348 512 375 C 542 348 569 370 569 405 C 569 450 512 500 512 500 Z" fill="#9A3412" opacity="0.22"/>
+</svg>

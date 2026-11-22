@@ -6,5 +6,7 @@ return [
         "vin" => \App\Services\Telegram\Handlers\VinBotHandler::class,
         "divination" =>
             \App\Services\Telegram\Handlers\DivinationBotHandler::class,
+        "psychologist" =>
+            \App\Services\Telegram\Handlers\PsychologistBotHandler::class,
     ],
 ];

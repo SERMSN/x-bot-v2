@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx="30%" cy="25%" r="85%">
+      <stop offset="0%" stop-color="#F3F8EF"/>
+      <stop offset="60%" stop-color="#DCEBDD"/>
+      <stop offset="100%" stop-color="#B7D4BB"/>
+    </radialGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="100%" stop-color="#166534"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <circle cx="512" cy="512" r="392" fill="none" stroke="#14532D" stroke-width="6" opacity="0.18"/>
+  <circle cx="512" cy="512" r="330" fill="#FFFFFF" opacity="0.24"/>
+  <path d="M 512 760 L 512 455" fill="none" stroke="#14532D" stroke-width="34" stroke-linecap="round"/>
+  <path d="M 512 555 C 390 555 320 470 330 360 C 450 360 520 440 512 555 Z" fill="url(#leaf)"/>
+  <path d="M 512 620 C 640 620 710 530 700 415 C 580 415 510 500 512 620 Z" fill="url(#leaf)" opacity="0.9"/>
+  <path d="M 512 555 C 450 500 400 450 360 400" fill="none" stroke="#D1FAE5" stroke-width="12" opacity="0.55" stroke-linecap="round"/>
+  <path d="M 512 620 C 575 560 625 505 665 455" fill="none" stroke="#D1FAE5" stroke-width="12" opacity="0.45" stroke-linecap="round"/>
+  <circle cx="512" cy="340" r="18" fill="#F59E0B"/>
+  <path d="M 300 790 C 400 760 460 805 512 790 C 564 775 624 820 724 790" fill="none" stroke="#14532D" stroke-width="10" stroke-linecap="round" opacity="0.22"/>
+</svg>

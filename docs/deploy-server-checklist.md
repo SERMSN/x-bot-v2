@@ -66,6 +66,7 @@ nano .env
 - `DB_PASSWORD="..."` (в кавычках, если есть спецсимволы, например `#`)
 - `TELEGRAPH_WEBHOOK_SECRET=<secret>` (если используется)
 - `DEEPSEEK_API_KEY=<key>` — для распознавания VIN по фото (либо ключ в `bot_settings`)
+- `PSYCHOLOGIST_DEEPSEEK_API_KEY=<key>` — отдельный ключ для бота «Тихо»
 - `VIN_VISION_ENABLED=true`
 - если `PUBLIC_ASSETS_PATH` не задан, divination-карты будут искать в Laravel `public_path()`;
 - если путь задан, он должен быть непустым абсолютным путем к публичной директории.

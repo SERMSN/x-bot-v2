@@ -1,10 +1,11 @@
 # X-Bot v2: описание проекта
 
 ## Кратко
-X-Bot v2 — Laravel 12 приложение для управления несколькими Telegram-ботами через единую админ-панель на Filament 4 и единый webhook-роут. В проекте уже реализованы три сценария ботов:
+X-Bot v2 — Laravel 12 приложение для управления несколькими Telegram-ботами через единую админ-панель на Filament 4 и единый webhook-роут. В проекте уже реализованы четыре сценария ботов:
 - погодный бот;
 - VIN-декодер;
-- бот-предсказатель.
+- бот-предсказатель;
+- бот психологической поддержки «Тихо».
 
 Боты хранятся в БД, выбирают обработчик по полю `handler_class`, а часть интеграционных параметров задается не через `.env`, а через таблицу `bot_settings`.
 
@@ -67,6 +68,9 @@ X-Bot v2 — Laravel 12 приложение для управления нес�
 - `DEEPSEEK_BASE_URL`
 - `DEEPSEEK_VISION_MODEL`
 - `VIN_VISION_*`
+- `PSYCHOLOGIST_DEEPSEEK_API_KEY`
+- `PSYCHOLOGIST_DEEPSEEK_MODEL`
+- `PSYCHOLOGIST_*`
 - `PUBLIC_ASSETS_PATH`
 - `HOSTING`
 
@@ -74,7 +78,8 @@ X-Bot v2 — Laravel 12 приложение для управления нес�
 - в `config/telegraph.php` кастомный webhook handler задан как `App\Services\Telegram\Handlers\Handler`;
 - модели Telegraph переопределены на `App\Models\TelegramBot` и `App\Models\TelegraphChat`;
 - реальные ключи для OpenWeather и Vincario VIN API ожидаются в таблице `bot_settings`, а не в `config/services.php`;
-- для DeepSeek Vision ключ можно задать в `.env` (`DEEPSEEK_API_KEY`) или в `bot_settings` (`DEEPSEEK_API_KEY`) для конкретного бота.
+- для DeepSeek Vision ключ можно задать в `.env` (`DEEPSEEK_API_KEY`) или в `bot_settings` (`DEEPSEEK_API_KEY`) для конкретного бота;
+- у бота «Тихо» отдельный ключ `PSYCHOLOGIST_DEEPSEEK_API_KEY`; он не смешивается с VIN Vision.
 
 ## Структура проекта
 ```text
@@ -127,6 +132,13 @@ x-bot-v2/
   - `hasMany(BotSetting::class)`
   - `hasMany(ChatLog::class)`
   - `hasMany(SubscriptionPlan::class)`
+
+### Психологические модели
+- `App\Models\PsychologistProfile` — связь с `telegraph_chats`, согласие, стиль общения.
+- `App\Models\PsychologistMemory` — зашифрованное краткое резюме, цели и темы.
+- `App\Models\PsychologistSession` — технические счётчики сессии без текста.
+- `App\Models\PsychologistMoodEntry` — оценки настроения 1–10.
+- `App\Models\PsychologistEvent` — технические события и safety-флаги.
 
 ### `App\Models\SubscriptionPlan`
 - Таблица: `subscription_plans`
@@ -328,6 +340,31 @@ x-bot-v2/
   - если публичная директория отделена от Laravel-кода, базовый путь задается через `PUBLIC_ASSETS_PATH` и не должен быть пустым;
   - текущая реализация предполагает обязательное наличие файла изображения для каждой карты.
 
+### `App\Services\Telegram\Handlers\PsychologistBotHandler`
+- Бот психологической поддержки «Тихо»
+- Поддерживает:
+  - `/start`, `/help`, `/reset`, `/forget`
+  - `/mood`, `/exercise`, `/summary`, `/settings`
+- Возможности:
+  - свободный текстовый разговор с психологом-консультантом;
+  - краткая память между сессиями в виде резюме;
+  - дневник настроения 1–10;
+  - упражнения: дыхание, заземление, разбор мысли;
+  - обязательное согласие 18+ и дисклеймер;
+  - кризисный сценарий с 112/103;
+  - удаление памяти через `/forget` с подтверждением.
+- Приватность:
+  - для `handler_class = psychologist` в `chat_logs.message_text` пишется `null`;
+  - в `meta` только длина сообщения, intent, safety-флаг и технические поля;
+  - краткое резюме памяти шифруется;
+  - временный контекст диалога хранится в кэше в зашифрованном виде с TTL.
+- Архитектура:
+  - `PsychologistConversationService` — диалог, сессии и счётчики;
+  - `PsychologistPromptBuilder` — системный промпт;
+  - `PsychologistMemoryService` — резюме и забывание;
+  - `PsychologistSafetyService` — кризисные фразы;
+  - `DeepSeekChatService` — отдельный API-клиент с `PSYCHOLOGIST_DEEPSEEK_API_KEY`.
+
 ## Services
 
 ### `App\Services\Telegram\Services\WeatherService`
@@ -469,5 +506,5 @@ x-bot-v2/
 - Для корректной работы weather-бота на каждого бота должны быть заведены `OPENWEATHER_API_KEY` и `OPENWEATHER_API_URL` в `bot_settings`.
 - Для VIN-бота на каждого бота должны быть заданы `VIN_API_BASE_URL`, `VIN_API_KEY` и `VIN_API_SECRET_KEY` в `bot_settings`.
 - Для распознавания VIN по фото нужен `DEEPSEEK_API_KEY` в `.env` или `bot_settings`; без ключа фото-режим вернет сообщение о неудачном распознавании.
-- Публичная страница и публичная Filament main-панель описывают три бота: погода, VIN и оракул.
+- Публичная страница и публичная Filament main-панель описывают четыре бота: погода, VIN, оракул и «Тихо».
 - В боте-оракуле есть два сценария: короткое предсказание и карта предсказания с обязательным локальным изображением и толкованием.

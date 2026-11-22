@@ -77,7 +77,11 @@ class TelegramWebhookController extends Controller
                 "handler_class" => $bot->handler_class,
             ]);
 
-            app(ChatLogger::class)->logInbound($request, (int) $bot->id);
+            app(ChatLogger::class)->logInbound(
+                $request,
+                (int) $bot->id,
+                (string) $bot->handler_class,
+            );
 
             $handler = app(Handler::class);
             $handler->handle($request, $bot);

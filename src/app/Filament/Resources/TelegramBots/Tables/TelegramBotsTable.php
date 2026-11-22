@@ -33,6 +33,7 @@ class TelegramBotsTable
                             "weather" => "🌤️ погодный бот",
                             "vin" => "🚗 отчет по VIN",
                             "divination" => "🔮 бот предсказаний",
+                            "psychologist" => "🧠 психолог «Тихо»",
                         ];
                         return $labels[$type] ?? "🤖 Общий бот";
                     }),

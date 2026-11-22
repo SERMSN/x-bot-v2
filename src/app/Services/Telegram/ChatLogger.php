@@ -9,9 +9,13 @@ use Illuminate\Support\Facades\Log;
 
 class ChatLogger
 {
-    public function logInbound(Request $request, int $botId): void
-    {
+    public function logInbound(
+        Request $request,
+        int $botId,
+        ?string $handlerKey = null,
+    ): void {
         try {
+            $isSensitive = $handlerKey === "psychologist";
             $updateId = $this->toInt($request->input("update_id"));
             $telegramChatId =
                 $this->toString($request->input("message.chat.id")) ??
@@ -22,8 +26,9 @@ class ChatLogger
 
             $chatModelId = $this->resolveChatModelId($botId, $telegramChatId);
 
-            $messageText = $this->toString($request->input("message.text"));
-            $command = $this->extractCommand($messageText);
+            $rawMessageText = $this->toString($request->input("message.text"));
+            $messageText = $isSensitive ? null : $rawMessageText;
+            $command = $this->extractCommand($rawMessageText);
             $callbackAction = $this->extractCallbackAction(
                 $request->input("callback_query.data"),
             );
@@ -33,18 +38,22 @@ class ChatLogger
                 $eventType = "callback";
             } elseif ($command !== null) {
                 $eventType = "command";
-            } elseif ($messageText !== null || $request->has("message.location")) {
+            } elseif ($rawMessageText !== null || $request->has("message.location")) {
                 $eventType = "message";
             }
 
             $meta = [
-                "has_location" => $request->has("message.location"),
+                "has_location" => !$isSensitive && $request->has("message.location"),
                 "callback_query_id" => $this->toString(
                     $request->input("callback_query.id"),
                 ),
+                "sensitive" => $isSensitive,
+                "text_length" => $rawMessageText !== null
+                    ? mb_strlen($rawMessageText)
+                    : null,
             ];
 
-            if ($request->has("message.location")) {
+            if (!$isSensitive && $request->has("message.location")) {
                 $meta["location"] = [
                     "latitude" => $request->input("message.location.latitude"),
                     "longitude" => $request->input("message.location.longitude"),
@@ -78,8 +87,16 @@ class ChatLogger
         ?string $telegramChatId,
         ?string $messageText,
         array $meta = [],
+        bool $storeText = true,
     ): void {
         try {
+            $textLength = $messageText !== null ? mb_strlen($messageText) : null;
+            if (!$storeText) {
+                $messageText = null;
+                $meta["text_length"] = $textLength;
+                $meta["sensitive"] = true;
+            }
+
             ChatLog::query()->create([
                 "telegraph_bot_id" => $botId,
                 "telegraph_chat_id" => $chatModelId,

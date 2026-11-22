@@ -13,6 +13,7 @@ class Handler extends WebhookHandler
         "weather" => WeatherBotHandler::class,
         "vin" => VinBotHandler::class,
         "divination" => DivinationBotHandler::class,
+        "psychologist" => PsychologistBotHandler::class,
     ];
 
     public function handle(Request $request, TelegraphBot $bot): void
