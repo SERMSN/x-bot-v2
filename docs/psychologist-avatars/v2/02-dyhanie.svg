@@ -12,12 +12,12 @@
     </linearGradient>
   </defs>
   <rect width="1024" height="1024" fill="url(#bg)"/>
-  <circle cx="512" cy="512" r="360" fill="#FFFFFF" opacity="0.06"/>
-  <circle cx="512" cy="512" r="360" fill="none" stroke="#F7F3E8" stroke-width="4" opacity="0.16"/>
-  <path d="M 190 610 C 300 470 410 470 512 610 C 614 750 724 750 834 610" fill="none" stroke="url(#wave)" stroke-width="64" stroke-linecap="round"/>
-  <path d="M 190 470 C 300 330 410 330 512 470 C 614 610 724 610 834 470" fill="none" stroke="#FFFFFF" stroke-width="18" opacity="0.55" stroke-linecap="round"/>
-  <path d="M 240 735 C 340 670 420 795 512 735 C 604 675 684 800 784 735" fill="none" stroke="#E9C46A" stroke-width="10" opacity="0.38" stroke-linecap="round"/>
-  <circle cx="512" cy="365" r="26" fill="#F4C95D"/>
-  <circle cx="512" cy="365" r="52" fill="#F4C95D" opacity="0.18"/>
-  <circle cx="504" cy="357" r="8" fill="#FFFFFF" opacity="0.8"/>
+  <circle cx="512" cy="512" r="512" fill="#FFFFFF" opacity="0.05"/>
+  <circle cx="512" cy="512" r="500" fill="none" stroke="#F7F3E8" stroke-width="4" opacity="0.18"/>
+  <path d="M 60 620 C 210 430 390 430 512 620 C 634 810 814 810 964 620" fill="none" stroke="url(#wave)" stroke-width="72" stroke-linecap="round"/>
+  <path d="M 60 460 C 210 270 390 270 512 460 C 634 650 814 650 964 460" fill="none" stroke="#FFFFFF" stroke-width="18" opacity="0.55" stroke-linecap="round"/>
+  <path d="M 110 760 C 250 690 370 820 512 760 C 654 700 774 830 914 760" fill="none" stroke="#E9C46A" stroke-width="10" opacity="0.38" stroke-linecap="round"/>
+  <circle cx="512" cy="330" r="28" fill="#F4C95D"/>
+  <circle cx="512" cy="330" r="56" fill="#F4C95D" opacity="0.16"/>
+  <circle cx="503" cy="321" r="8" fill="#FFFFFF" opacity="0.8"/>
 </svg>

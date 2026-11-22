@@ -7,15 +7,16 @@
     </radialGradient>
     <mask id="moon">
       <rect width="1024" height="1024" fill="black"/>
-      <circle cx="600" cy="360" r="160" fill="white"/>
-      <circle cx="665" cy="315" r="150" fill="black"/>
+      <circle cx="600" cy="340" r="180" fill="white"/>
+      <circle cx="672" cy="288" r="170" fill="black"/>
     </mask>
   </defs>
   <rect width="1024" height="1024" fill="url(#bg)"/>
-  <circle cx="512" cy="512" r="360" fill="none" stroke="#E9C46A" stroke-width="4" opacity="0.16"/>
-  <circle cx="600" cy="360" r="160" fill="#F4E9D8" mask="url(#moon)"/>
-  <circle cx="740" cy="230" r="7" fill="#F4E9D8" opacity="0.9"/>
-  <circle cx="790" cy="280" r="4" fill="#E9C46A" opacity="0.8"/>
-  <path d="M 180 670 C 280 600 360 740 460 670 C 560 600 640 740 740 670 C 790 635 820 645 844 670" fill="none" stroke="#2A9D8F" stroke-width="34" stroke-linecap="round"/>
-  <path d="M 220 760 C 320 700 400 820 500 760 C 600 700 680 820 780 760" fill="none" stroke="#E9C46A" stroke-width="10" stroke-linecap="round" opacity="0.35"/>
+  <circle cx="512" cy="512" r="512" fill="#FFFFFF" opacity="0.03"/>
+  <circle cx="512" cy="512" r="500" fill="none" stroke="#E9C46A" stroke-width="4" opacity="0.18"/>
+  <circle cx="600" cy="340" r="180" fill="#F4E9D8" mask="url(#moon)"/>
+  <circle cx="770" cy="210" r="8" fill="#F4E9D8" opacity="0.9"/>
+  <circle cx="820" cy="260" r="5" fill="#E9C46A" opacity="0.8"/>
+  <path d="M 90 700 C 220 620 330 780 470 700 C 610 620 720 780 860 700 C 910 665 950 675 970 700" fill="none" stroke="#2A9D8F" stroke-width="42" stroke-linecap="round"/>
+  <path d="M 120 800 C 260 730 380 860 520 800 C 660 740 780 860 920 800" fill="none" stroke="#E9C46A" stroke-width="10" stroke-linecap="round" opacity="0.35"/>
 </svg>
